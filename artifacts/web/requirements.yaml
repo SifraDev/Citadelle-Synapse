@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "For elegant page transitions and smooth UI interactions suitable for a premium app"
+  "date-fns": "For formatting dates in activity logs, tasks, and payments"
+  "react-dropzone": "For handling sophisticated PDF drag-and-drop interactions in the Vault"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge Tailwind classes safely"
+
+images:
+  - path: "artifacts/web/public/images/legal-bg.png"
+    description: "Abstract, very dark minimal navy and slate geometric background, premium corporate law firm feel, deep shadows, professional"
+    aspect_ratio: "16:9"
+
+notes:
+  - "Using generated React Query hooks from @workspace/api-client-react"
+  - "Implementing custom fetch hook for POST /api/analyze to handle streaming response (text/event-stream)"
+  - "Implementing standard EventSource for GET /api/activity/stream"

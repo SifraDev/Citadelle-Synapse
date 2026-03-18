@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Venice AI Legal Analysis Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: analysis
+    description: Document analysis operations
+  - name: tasks
+    description: Scheduled task operations
+  - name: activity
+    description: Activity log operations
+  - name: telegram
+    description: Telegram integration operations
+  - name: payments
+    description: Crypto payment operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /analyze:
+    post:
+      operationId: analyzeDocuments
+      tags: [analysis]
+      summary: Upload and analyze PDF documents
+      description: Upload multiple PDFs for live analysis via Venice AI. Documents are processed in memory and immediately purged.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                mode:
+                  type: string
+                  enum: [summarize, extract_clauses, flag_risks, custom]
+                customQuery:
+                  type: string
+              required:
+                - files
+                - mode
+      responses:
+        "200":
+          description: SSE stream of analysis results
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List scheduled tasks
+      responses:
+        "200":
+          description: List of scheduled tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduledTask"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a scheduled task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskInput"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledTask"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tasks/{id}:
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a scheduled task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /activity:
+    get:
+      operationId: getActivityLogs
+      tags: [activity]
+      summary: Get activity logs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEntry"
+  /activity/stream:
+    get:
+      operationId: streamActivity
+      tags: [activity]
+      summary: Stream live activity via SSE
+      responses:
+        "200":
+          description: SSE stream of activity events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /telegram/status:
+    get:
+      operationId: getTelegramStatus
+      tags: [telegram]
+      summary: Get Telegram bot connection status
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramStatus"
+  /telegram/send:
+    post:
+      operationId: sendTelegramMessage
+      tags: [telegram]
+      summary: Send a message via Telegram bot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramMessageInput"
+      responses:
+        "200":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /payments:
+    get:
+      operationId: getPayments
+      tags: [payments]
+      summary: Get crypto payment logs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Payment log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentEntry"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +229,134 @@ components:
           type: string
       required:
         - status
-
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+    ScheduledTask:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        mode:
+          type: string
+          enum: [summarize, extract_clauses, flag_risks, custom]
+        customQuery:
+          type: string
+        cronExpression:
+          type: string
+        nextRun:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - mode
+        - active
+        - createdAt
+    CreateTaskInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        mode:
+          type: string
+          enum: [summarize, extract_clauses, flag_risks, custom]
+        customQuery:
+          type: string
+        cronExpression:
+          type: string
+      required:
+        - name
+        - mode
+    ActivityEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [upload, analysis, telegram, payment, task, system]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - type
+        - message
+        - timestamp
+    TelegramStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        botUsername:
+          type: string
+        chatId:
+          type: string
+      required:
+        - connected
+    TelegramMessageInput:
+      type: object
+      properties:
+        message:
+          type: string
+        chatId:
+          type: string
+      required:
+        - message
+    PaymentEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        txHash:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        amount:
+          type: string
+        token:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, failed]
+        timestamp:
+          type: string
+          format: date-time
+        network:
+          type: string
+      required:
+        - id
+        - amount
+        - token
+        - status
+        - timestamp
