@@ -9,7 +9,7 @@ import {
   X
 } from "lucide-react";
 import { useListTasks, useCreateTask, useDeleteTask, getListTasksQueryKey } from "@workspace/api-client-react";
-import type { CreateTaskInputMode } from "@workspace/api-client-react";
+import { CreateTaskInputMode } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Scheduler() {
