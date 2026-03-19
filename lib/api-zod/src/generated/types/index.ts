@@ -14,6 +14,7 @@ export * from "./analyzeDocumentsBodyMode";
 export * from "./createTaskInput";
 export * from "./createTaskInputActionType";
 export * from "./createTaskInputMode";
+export * from "./draftInput";
 export * from "./errorResponse";
 export * from "./getActivityLogsParams";
 export * from "./getPaymentsParams";

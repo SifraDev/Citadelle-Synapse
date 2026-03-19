@@ -200,6 +200,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /draft:
+    post:
+      operationId: generateSafeDraft
+      tags: [analysis]
+      summary: Generate a sanitized PDF draft from analysis text
+      description: Takes raw analysis text, sanitizes it via Venice AI to remove all PII, and returns a downloadable PDF. Zero-retention — PDF is generated in memory and not stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftInput"
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /payments:
     get:
       operationId: getPayments
@@ -352,6 +384,15 @@ components:
           type: string
       required:
         - message
+    DraftInput:
+      type: object
+      properties:
+        analysisText:
+          type: string
+        mode:
+          type: string
+      required:
+        - analysisText
     PaymentEntry:
       type: object
       properties:

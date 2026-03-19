@@ -31,6 +31,42 @@ export interface AnalysisOptions {
   documentTexts: string[];
 }
 
+const SANITIZE_PROMPT = `You are a senior legal privacy compliance officer. Your task is to take the following legal analysis and rewrite it so it is SAFE for external distribution. You MUST:
+
+1. Replace ALL proper names (people, companies, organizations) with generic placeholders like [PARTY A], [PARTY B], [COMPANY X], etc.
+2. Replace ALL specific addresses, phone numbers, email addresses, and physical locations with [ADDRESS REDACTED], [CONTACT REDACTED], etc.
+3. Replace ALL specific financial amounts, account numbers, and monetary figures with [AMOUNT REDACTED] or [FINANCIAL DETAILS REDACTED]
+4. Replace ALL dates that could identify the specific matter with [DATE REDACTED], but keep relative time references (e.g., "within 30 days" is fine)
+5. Replace ALL case numbers, file references, and docket numbers with [REFERENCE REDACTED]
+6. Preserve ALL legal analysis, conclusions, risk assessments, and recommendations — only redact identifying information
+7. Maintain the exact same document structure, headings, and formatting
+
+The output must be a complete, readable legal analysis that contains zero personally identifiable information (PII) while retaining full analytical value.`;
+
+export async function sanitizeAnalysis(analysisText: string): Promise<string> {
+  const ai = getClient();
+  let result = "";
+
+  const stream = await ai.chat.completions.create({
+    model: "deepseek-v3.2",
+    messages: [
+      { role: "system", content: SANITIZE_PROMPT },
+      { role: "user", content: analysisText },
+    ],
+    stream: true,
+    max_tokens: 4096,
+  });
+
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      result += content;
+    }
+  }
+
+  return result;
+}
+
 export async function* streamAnalysis(options: AnalysisOptions): AsyncGenerator<string> {
   const ai = getClient();
   const systemPrompt = SYSTEM_PROMPTS[options.mode];
@@ -44,7 +80,7 @@ export async function* streamAnalysis(options: AnalysisOptions): AsyncGenerator<
   }
 
   const stream = await ai.chat.completions.create({
-    model: "deepseek-r1-671b",
+    model: "deepseek-v3.2",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },

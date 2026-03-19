@@ -119,6 +119,11 @@ export interface TelegramMessageInput {
   chatId?: string;
 }
 
+export interface DraftInput {
+  analysisText: string;
+  mode?: string;
+}
+
 export type PaymentEntryStatus =
   (typeof PaymentEntryStatus)[keyof typeof PaymentEntryStatus];
 

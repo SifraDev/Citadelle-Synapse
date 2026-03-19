@@ -20,6 +20,7 @@ import type {
   ActivityEntry,
   AnalyzeDocumentsBody,
   CreateTaskInput,
+  DraftInput,
   ErrorResponse,
   GetActivityLogsParams,
   GetPaymentsParams,
@@ -775,6 +776,93 @@ export const useSendTelegramMessage = <
   TContext
 > => {
   return useMutation(getSendTelegramMessageMutationOptions(options));
+};
+
+/**
+ * Takes raw analysis text, sanitizes it via Venice AI to remove all PII, and returns a downloadable PDF. Zero-retention — PDF is generated in memory and not stored.
+ * @summary Generate a sanitized PDF draft from analysis text
+ */
+export const getGenerateSafeDraftUrl = () => {
+  return `/api/draft`;
+};
+
+export const generateSafeDraft = async (
+  draftInput: DraftInput,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGenerateSafeDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(draftInput),
+  });
+};
+
+export const getGenerateSafeDraftMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSafeDraft>>,
+    TError,
+    { data: BodyType<DraftInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateSafeDraft>>,
+  TError,
+  { data: BodyType<DraftInput> },
+  TContext
+> => {
+  const mutationKey = ["generateSafeDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateSafeDraft>>,
+    { data: BodyType<DraftInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateSafeDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateSafeDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateSafeDraft>>
+>;
+export type GenerateSafeDraftMutationBody = BodyType<DraftInput>;
+export type GenerateSafeDraftMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Generate a sanitized PDF draft from analysis text
+ */
+export const useGenerateSafeDraft = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSafeDraft>>,
+    TError,
+    { data: BodyType<DraftInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateSafeDraft>>,
+  TError,
+  { data: BodyType<DraftInput> },
+  TContext
+> => {
+  return useMutation(getGenerateSafeDraftMutationOptions(options));
 };
 
 /**

@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   Loader2,
   Lock,
-  Info
+  Info,
+  FileDown
 } from "lucide-react";
 import { useAnalyzeStream } from "@/hooks/use-analyze-stream";
 import type { AnalyzeDocumentsBodyMode } from "@workspace/api-client-react";
@@ -20,11 +21,43 @@ export default function Vault() {
   const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<AnalyzeDocumentsBodyMode>("summarize");
   const [customQuery, setCustomQuery] = useState("");
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const { toast } = useToast();
 
   const { analyze, isAnalyzing, result, isPurged, status, reset } = useAnalyzeStream({
     onError: (err) => toast({ title: "Analysis Failed", description: err, variant: "destructive" })
   });
+
+  const handleDownloadDraft = useCallback(async () => {
+    if (!result) return;
+    setIsGeneratingDraft(true);
+    try {
+      const response = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analysisText: result, mode }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Draft generation failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `safe-draft-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Safe Draft Downloaded", description: "PII-redacted PDF has been generated and downloaded." });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Draft generation failed";
+      toast({ title: "Draft Failed", description: msg, variant: "destructive" });
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  }, [result, mode, toast]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
@@ -195,21 +228,36 @@ export default function Vault() {
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4 text-emerald-400"
+                className="mt-8 space-y-3"
               >
-                <div className="p-2 rounded-full bg-emerald-500/20">
-                  <CheckCircle2 className="h-6 w-6" />
+                {result && (
+                  <button
+                    onClick={handleDownloadDraft}
+                    disabled={isGeneratingDraft}
+                    className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:transform-none disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingDraft ? (
+                      <><Loader2 className="h-5 w-5 animate-spin" /> Sanitizing & Generating PDF...</>
+                    ) : (
+                      <><FileDown className="h-5 w-5" /> Download Safe Draft (PII Redacted)</>
+                    )}
+                  </button>
+                )}
+                <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4 text-emerald-400">
+                  <div className="p-2 rounded-full bg-emerald-500/20">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-emerald-300">Analysis Complete</h4>
+                    <p className="text-xs mt-0.5 opacity-80">All source documents have been permanently removed from memory.</p>
+                  </div>
+                  <button 
+                    onClick={handleReset}
+                    className="ml-auto px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20"
+                  >
+                    Start New
+                  </button>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-emerald-300">Analysis Complete</h4>
-                  <p className="text-xs mt-0.5 opacity-80">All source documents have been permanently removed from memory.</p>
-                </div>
-                <button 
-                  onClick={handleReset}
-                  className="ml-auto px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20"
-                >
-                  Start New
-                </button>
               </motion.div>
             )}
           </div>

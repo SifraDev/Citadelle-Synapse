@@ -41,8 +41,10 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 
 ### Venice AI (artifacts/api-server/src/lib/venice.ts)
 - Uses OpenAI SDK pointed at `https://api.venice.ai/api/v1`
-- Model: `deepseek-r1-671b`
+- Model: `deepseek-v3.2`
 - Supports 4 analysis modes: summarize, extract_clauses, flag_risks, custom
+- Sanitization mode: rewrites analysis to redact all PII (names, addresses, amounts, dates, case numbers)
+- PDF draft generation via pdfkit (in-memory, zero-retention)
 - Streams responses via SSE to frontend
 
 ## Structure
@@ -95,6 +97,7 @@ artifacts-monorepo/
 
 - `GET /api/healthz` — Health check
 - `POST /api/analyze` — Upload PDFs + stream analysis (multipart/form-data, SSE response)
+- `POST /api/draft` — Generate sanitized PDF draft from analysis text (PII redacted via Venice AI, zero-retention)
 - `GET /api/tasks` — List scheduled tasks
 - `POST /api/tasks` — Create scheduled task
 - `DELETE /api/tasks/:id` — Delete scheduled task

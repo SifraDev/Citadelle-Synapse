@@ -132,6 +132,15 @@ export const SendTelegramMessageResponse = zod.object({
 });
 
 /**
+ * Takes raw analysis text, sanitizes it via Venice AI to remove all PII, and returns a downloadable PDF. Zero-retention — PDF is generated in memory and not stored.
+ * @summary Generate a sanitized PDF draft from analysis text
+ */
+export const GenerateSafeDraftBody = zod.object({
+  analysisText: zod.string(),
+  mode: zod.string().optional(),
+});
+
+/**
  * @summary Get crypto payment logs
  */
 export const getPaymentsQueryLimitDefault = 50;
