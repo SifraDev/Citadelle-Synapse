@@ -1,0 +1,26 @@
+WHAT'S BEEN PLANNED:
+Combined Roadmap: "0 to Hero" Execution Plan
+Phase 1: Identity & Foundation (✅ COMPLETED)
+
+ERC-8004 NFT Registration: Establishing the agent's "ID card" on the blockchain.
+Telegram API Connection: Setting up the base communication layer.
+Identity Claim: Successfully claiming the identity to your personal wallet (NFT Rescue).
+Phase 2: The Cryptographic Brain (In Progress)
+
+Venice AI Integration: Implementing the real Venice AI API so it can censor sensitive data, but actively analyzes the text/document's risk like a true forensic auditor.
+Zero-Retention Memory: Implementing a strict memory purge (RAM) on the backend immediately after processing to guarantee extreme privacy. Telegram Bot should be able to send/receive messages and charge. Payments should be able to do it by telegram and interface of the web app. 
+Phase 3: The x402 Paywall & Transactional Engine
+
+Locus API Integration: Creating the paywall. Once Venice finishes its analysis, the agent generates a real USDC payment session/link on the Base network.
+Phase 4: Financial Autonomy
+
+MetaMask Delegations (ERC-7715): Integrating one-click payments so the agent can extract the authorized USDC.
+Uniswap API Integration: Closing the economic loop by allowing the agent to execute an autonomous swap on Base (USDC to ETH) to collect its "commission" and fund its own gas/internal treasury.
+Phase 5: The Interface of Trust (Secure Vault)
+
+Professional Upload Portal: Building a minimalist, drag-and-drop web page (HTML/JS) designed specifically for lawyers to upload sensitive PDFs outside of Telegram.
+Operational Flow: 1. The lawyer uploads the document via the Secure Vault web portal. 2. The web sends the document to the backend. 3. The bot processes the data and sends an alert to Telegram. 4. The CEO authorizes the payment. 5. The web portal displays the clean, finalized report.
+Phase 6: Military-Grade Deployment & Demo
+
+Google Cloud Migration: Packaging the polished code and cloning it to a Google Cloud server (Compute Engine) so it runs 24/7, eliminating Replit's downtimes and "ghosts."
+Final Demo Video: Recording the perfect simulation video, jumping seamlessly between the web portal, Telegram, and blockchain explorers (Basescan) to showcase the real transactions in action.
