@@ -25,6 +25,26 @@ router.post("/tasks", async (req, res): Promise<void> => {
     return;
   }
 
+  if (body.actionType === "send_reminder" && !body.reminderText && !body.description) {
+    res.status(400).json({ error: "reminderText or description is required for send_reminder tasks" });
+    return;
+  }
+  if (body.actionType === "charge_client") {
+    const amount = Number(body.chargeAmount);
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: "chargeAmount must be a positive number for charge_client tasks" });
+      return;
+    }
+  }
+
+  if (body.cronExpression) {
+    const intervalMs = parseCronToMs(body.cronExpression);
+    if (intervalMs <= 0) {
+      res.status(400).json({ error: `Unsupported cronExpression "${body.cronExpression}". Use formats like "every 5m", "hourly", "daily", or "weekly".` });
+      return;
+    }
+  }
+
   const task = store.addTask({
     name: body.name,
     description: body.description,
