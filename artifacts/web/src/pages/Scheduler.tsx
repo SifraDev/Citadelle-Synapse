@@ -11,6 +11,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { useListTasks, useCreateTask, useDeleteTask, getListTasksQueryKey } from "@workspace/api-client-react";
+import type { CreateTaskInput } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const ACTION_TYPES = [
@@ -149,15 +150,15 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: Record<string, unknown> = {
+    const payload: CreateTaskInput = {
       name: formData.name,
+      actionType: formData.actionType as CreateTaskInput["actionType"],
       description: formData.description || undefined,
-      actionType: formData.actionType,
       cronExpression: formData.cronExpression || undefined,
     };
 
     if (formData.actionType === "analyze_document") {
-      payload.mode = formData.mode;
+      payload.mode = formData.mode as CreateTaskInput["mode"];
       if (formData.mode === "custom") payload.customQuery = formData.customQuery;
     } else if (formData.actionType === "send_reminder") {
       payload.reminderText = formData.reminderText;
@@ -167,7 +168,7 @@ function CreateTaskModal({ onClose }: { onClose: () => void }) {
       if (formData.targetChatId) payload.targetChatId = formData.targetChatId;
     }
 
-    createTask({ data: payload as any }, {
+    createTask({ data: payload }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
         onClose();

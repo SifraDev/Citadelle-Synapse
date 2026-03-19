@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { store } from "../lib/store.js";
 import { sendMessage } from "../lib/telegram.js";
+import { streamAnalysis } from "../lib/venice.js";
 
 const router: IRouter = Router();
 
@@ -91,10 +92,37 @@ async function executeTask(task: import("../lib/store.js").ScheduledTask): Promi
 
   switch (task.actionType) {
     case "analyze_document": {
-      await sendMessage(
-        `⏰ <b>Scheduled Analysis Task</b>\n\nTask: ${task.name}\nMode: ${task.mode || "summarize"}\n${task.description ? `Description: ${task.description}` : ""}\n\n<i>Upload a document in the Document Vault to run this analysis.</i>`
-      );
-      store.addActivity("task", `Task "${task.name}": Analysis reminder sent via Telegram`);
+      const mode = (task.mode as "summarize" | "extract_clauses" | "flag_risks" | "custom") || "summarize";
+      const description = task.description || task.name;
+      const documentTexts = [description];
+
+      store.addActivity("task", `Task "${task.name}": Running Venice AI analysis (${mode})`);
+
+      try {
+        let analysisResult = "";
+        for await (const chunk of streamAnalysis({
+          mode,
+          customQuery: task.customQuery,
+          documentTexts,
+        })) {
+          analysisResult += chunk;
+        }
+
+        const truncated = analysisResult.length > 3500
+          ? analysisResult.substring(0, 3500) + "\n\n... [truncated]"
+          : analysisResult;
+
+        await sendMessage(
+          `🔍 <b>Scheduled Analysis Complete</b>\n\nTask: ${task.name}\nMode: ${mode}\n\n<pre>${truncated}</pre>`
+        );
+        store.addActivity("analysis", `Task "${task.name}": Venice AI analysis complete (${analysisResult.length} chars)`);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        await sendMessage(
+          `❌ <b>Analysis Failed</b>\n\nTask: ${task.name}\nError: ${errorMsg}`
+        );
+        store.addActivity("task", `Task "${task.name}": Analysis failed — ${errorMsg}`);
+      }
       break;
     }
 
