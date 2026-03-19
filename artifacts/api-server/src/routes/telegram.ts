@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
-import { SendTelegramMessageBody } from "@workspace/api-zod";
+import { z } from "zod";
 import { getBotStatus, sendMessage } from "../lib/telegram.js";
+
+const SendTelegramMessageBody = z.object({
+  message: z.string(),
+  chatId: z.string().optional(),
+});
 
 const router: IRouter = Router();
 

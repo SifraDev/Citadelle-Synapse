@@ -347,6 +347,7 @@ export default function Payments() {
                   <th className="px-6 py-4">Time</th>
                   <th className="px-6 py-4">Transaction</th>
                   <th className="px-6 py-4">From</th>
+                  <th className="px-6 py-4">To</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4 text-right">Status</th>
                 </tr>
@@ -376,6 +377,11 @@ export default function Payments() {
                     <td className="px-6 py-4">
                       <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
                         {truncateAddress(payment.from || "")}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
+                        {truncateAddress(payment.to || "")}
                       </span>
                     </td>
                     <td className="px-6 py-4">

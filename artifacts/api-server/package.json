@@ -21,7 +21,8 @@
     "openai": "^6.31.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.18.0",
-    "viem": "^2.47.5"
+    "viem": "^2.47.5",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

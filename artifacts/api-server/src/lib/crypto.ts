@@ -1,5 +1,15 @@
-import { createPublicClient, http, parseAbi, formatUnits, type Log } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseAbi,
+  formatUnits,
+  type PublicClient,
+  type WalletClient,
+  type Log,
+} from "viem";
 import { base } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 
@@ -12,18 +22,43 @@ const ERC20_ABI = parseAbi([
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);
 
-let publicClient: ReturnType<typeof createPublicClient> | null = null;
+const transport = http("https://mainnet.base.org");
+
+let _publicClient: PublicClient | null = null;
+let _walletClient: WalletClient | null = null;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let lastProcessedBlock: bigint = 0n;
 
-function getClient() {
-  if (!publicClient) {
-    publicClient = createPublicClient({
+function getPublicClient(): PublicClient {
+  if (!_publicClient) {
+    _publicClient = createPublicClient({
       chain: base,
-      transport: http("https://mainnet.base.org"),
-    });
+      transport,
+    }) as PublicClient;
   }
-  return publicClient;
+  return _publicClient;
+}
+
+function getWalletClient(): WalletClient | null {
+  if (_walletClient) return _walletClient;
+  const pk = process.env.PRIVATE_KEY;
+  if (!pk) {
+    console.log("[Crypto] PRIVATE_KEY not set, wallet client unavailable");
+    return null;
+  }
+  try {
+    const account = privateKeyToAccount(pk.startsWith("0x") ? pk as `0x${string}` : `0x${pk}`);
+    _walletClient = createWalletClient({
+      account,
+      chain: base,
+      transport,
+    });
+    console.log(`[Crypto] Wallet client initialized for ${account.address}`);
+    return _walletClient;
+  } catch (err) {
+    console.error("[Crypto] Failed to initialize wallet client:", err);
+    return null;
+  }
 }
 
 export function getAgentWallet(): string {
@@ -34,9 +69,13 @@ export function getUsdcAddress(): string {
   return USDC_ADDRESS;
 }
 
+export function isWalletReady(): boolean {
+  return getWalletClient() !== null;
+}
+
 export async function getUsdcBalance(): Promise<string> {
   try {
-    const client = getClient();
+    const client = getPublicClient();
     const balance = await client.readContract({
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
@@ -107,8 +146,10 @@ async function processTransferLogs(logs: Log[]) {
 export async function startTransferMonitor(): Promise<void> {
   if (pollInterval) return;
 
+  getWalletClient();
+
   try {
-    const client = getClient();
+    const client = getPublicClient();
     const currentBlock = await client.getBlockNumber();
     lastProcessedBlock = currentBlock - 100n;
 
@@ -117,7 +158,7 @@ export async function startTransferMonitor(): Promise<void> {
 
     pollInterval = setInterval(async () => {
       try {
-        const client = getClient();
+        const client = getPublicClient();
         const latestBlock = await client.getBlockNumber();
 
         if (latestBlock <= lastProcessedBlock) return;
@@ -165,7 +206,7 @@ export async function verifyTransaction(txHash: string): Promise<{
   error?: string;
 }> {
   try {
-    const client = getClient();
+    const client = getPublicClient();
     const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` });
 
     if (receipt.status !== "success") {

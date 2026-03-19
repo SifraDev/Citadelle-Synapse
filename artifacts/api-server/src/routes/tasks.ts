@@ -159,17 +159,18 @@ async function executeTask(task: import("../lib/store.js").ScheduledTask): Promi
       const targetChat = task.targetChatId || undefined;
       if (amount > 0) {
         const charge = store.addCharge(String(amount), task.description || task.name);
-        const walletAddr = "0x0128D1EE63C0e99CB3f587E982619bC8B00Ad443";
+        const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
+        const payUrl = domain ? `https://${domain}/pay/${charge.id}` : `/pay/${charge.id}`;
         if (targetChat) {
           await sendMessage(
-            `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nWallet: <code>${walletAddr}</code>\nNetwork: Base\nCharge ID: <code>${charge.id}</code>\n\nSend ${amount} USDC to the wallet above on Base network.`,
+            `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>\n\nClick the link above to pay via MetaMask on Base network.`,
             targetChat
           );
         }
         await sendMessage(
-          `💳 <b>Charge Created (Scheduled)</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\nCharge ID: <code>${charge.id}</code>`
+          `💳 <b>Charge Created (Scheduled)</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>`
         );
-        store.addActivity("payment", `Task "${task.name}": Charge created for ${amount} USDC (ID: ${charge.id})`);
+        store.addActivity("payment", `Task "${task.name}": Charge created for ${amount} USDC — ${payUrl}`);
       } else {
         await sendMessage(
           `💳 <b>Charge Client Task</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\n${task.description || ""}\n\n<i>Set a positive chargeAmount to create a real charge.</i>`
