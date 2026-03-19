@@ -2,6 +2,14 @@ import TelegramBot from "node-telegram-bot-api";
 import { store } from "./store.js";
 import { getAgentWallet } from "./crypto.js";
 
+function getPaymentUrl(chargeId: string): string {
+  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
+  if (domain) {
+    return `https://${domain}/pay/${chargeId}`;
+  }
+  return `/pay/${chargeId}`;
+}
+
 export let bot: TelegramBot | null = null;
 let botInfo: { username: string } | null = null;
 export let isInitialized = false;
@@ -61,7 +69,8 @@ export function initTelegramBot(): void {
               return;
             }
             const charge = store.addCharge(String(amount), label);
-            const chargeMsg = `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nCharge ID: ${charge.id}\nWallet: ${getAgentWallet()}\nNetwork: Base\n\nShare the Charge ID with the client to pay via the web platform.`;
+            const payUrl = getPaymentUrl(charge.id);
+            const chargeMsg = `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nPayment Link: ${payUrl}\n\nShare this link with the client to pay via MetaMask.`;
             bot?.sendMessage(Number(chatId), chargeMsg);
             logOutgoing(chatId, chargeMsg);
             return;
@@ -73,17 +82,18 @@ export function initTelegramBot(): void {
             clientsWaitingForPrice.delete(chatId);
 
             const charge = store.addCharge(String(amount), `telegram-client-${clientChatId}`);
+            const payUrl = getPaymentUrl(charge.id);
 
-            const confirmMsg = `✅ Confirmed. Charge created for ${amount} USDC.\nCharge ID: ${charge.id}`;
+            const confirmMsg = `✅ Confirmed. Charge created for ${amount} USDC.\nPayment Link: ${payUrl}`;
             bot?.sendMessage(Number(chatId), confirmMsg);
             logOutgoing(chatId, confirmMsg);
 
             const options = {
                 reply_markup: {
-                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, callback_data: `charge_${charge.id}` }]]
+                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, url: payUrl }]]
                 }
             };
-            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nWallet: \`${getAgentWallet()}\`\nNetwork: Base (USDC)\n\nPlease proceed with payment:`;
+            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nPay here: ${payUrl}\n\nOr send ${amount} USDC directly to:\nWallet: \`${getAgentWallet()}\`\nNetwork: Base`;
             bot?.sendMessage(Number(clientChatId), invoiceMsg, options);
             logOutgoing(clientChatId, invoiceMsg);
             store.addActivity("payment", `CEO set price: ${amount} USDC for client`);
@@ -126,16 +136,18 @@ export function initTelegramBot(): void {
         }
 
         if (matchedKeyword) {
-            const amount = preApprovedInvoices.get(matchedKeyword);
+            const amount = preApprovedInvoices.get(matchedKeyword)!;
+            const charge = store.addCharge(String(amount), `auto-${matchedKeyword}-${chatId}`);
+            const payUrl = getPaymentUrl(charge.id);
             const options = {
                 reply_markup: {
-                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, callback_data: `pay_${amount}` }]]
+                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, url: payUrl }]]
                 }
             };
-            const autoMsg = `Hello. Based on your request regarding **${matchedKeyword}**, the professional fee is ${amount} USDC. Please proceed with the secure payment:`;
+            const autoMsg = `Hello. Based on your request regarding **${matchedKeyword}**, the professional fee is ${amount} USDC.\n\nPay here: ${payUrl}`;
             bot?.sendMessage(Number(chatId), autoMsg, options);
             logOutgoing(chatId, autoMsg);
-            store.addActivity("telegram", `Auto-replied to client for ${matchedKeyword}`);
+            store.addActivity("telegram", `Auto-replied to client for ${matchedKeyword} — charge created`);
             return;
         }
 

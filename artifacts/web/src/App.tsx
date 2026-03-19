@@ -4,12 +4,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
-// Components & Pages
 import { Layout } from "@/components/layout/Layout";
 import Vault from "@/pages/Vault";
 import Scheduler from "@/pages/Scheduler";
 import Activity from "@/pages/Activity";
 import Payments from "@/pages/Payments";
+import Pay from "@/pages/Pay";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,15 +22,22 @@ const queryClient = new QueryClient({
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Vault} />
-        <Route path="/tasks" component={Scheduler} />
-        <Route path="/activity" component={Activity} />
-        <Route path="/payments" component={Payments} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      <Route path="/pay/:chargeId">
+        {(params) => <Pay params={params} />}
+      </Route>
+      <Route path="*">
+        <Layout>
+          <Switch>
+            <Route path="/" component={Vault} />
+            <Route path="/tasks" component={Scheduler} />
+            <Route path="/activity" component={Activity} />
+            <Route path="/payments" component={Payments} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 

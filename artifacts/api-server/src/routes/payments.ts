@@ -40,11 +40,14 @@ router.post("/payments/charge", async (req, res): Promise<void> => {
 
   const charge = store.addCharge(String(Number(amount)), label);
 
+  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
+  const payUrl = domain ? `https://${domain}/pay/${charge.id}` : `/pay/${charge.id}`;
+
   await sendMessage(
-    `💳 <b>New Charge Created</b>\n\nAmount: ${charge.amount} USDC\n${label ? `Client: ${label}\n` : ""}ID: <code>${charge.id}</code>`
+    `💳 <b>New Charge Created</b>\n\nAmount: ${charge.amount} USDC\n${label ? `Client: ${label}\n` : ""}Payment Link: <a href="${payUrl}">${payUrl}</a>`
   );
 
-  res.status(201).json(charge);
+  res.status(201).json({ ...charge, paymentUrl: payUrl });
 });
 
 router.get("/payments/charge/:id", async (req, res): Promise<void> => {
@@ -83,6 +86,23 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
   }
 
   if (chargeId) {
+    const charge = store.getCharge(chargeId);
+    if (!charge) {
+      res.status(404).json({ error: "Charge not found" });
+      return;
+    }
+    if (charge.status !== "pending") {
+      res.status(400).json({ error: `Charge is already ${charge.status}` });
+      return;
+    }
+    const verifiedAmount = parseFloat(verification.amount || "0");
+    const chargeAmount = parseFloat(charge.amount);
+    if (Math.abs(verifiedAmount - chargeAmount) > 0.01) {
+      res.status(400).json({
+        error: `Amount mismatch: charge requires ${charge.amount} USDC but transaction sent ${verification.amount} USDC`,
+      });
+      return;
+    }
     store.updateCharge(chargeId, {
       status: "paid",
       txHash,
