@@ -6,15 +6,45 @@ interface UseAnalyzeStreamProps {
   onError?: (error: string) => void;
 }
 
+interface StatusInfo {
+  phase: string;
+  message: string;
+}
+
+function parseSSEMessages(raw: string): Array<{ event: string; data: string }> {
+  const results: Array<{ event: string; data: string }> = [];
+  const messages = raw.split("\n\n");
+  for (const message of messages) {
+    if (!message.trim()) continue;
+    let eventName = "message";
+    let dataStr = "";
+    for (const line of message.split("\n")) {
+      if (line.startsWith("event: ")) {
+        eventName = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        dataStr += line.slice(6);
+      }
+    }
+    if (dataStr) {
+      results.push({ event: eventName, data: dataStr });
+    }
+  }
+  return results;
+}
+
 export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps = {}) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState("");
   const [isPurged, setIsPurged] = useState(false);
+  const [status, setStatus] = useState<StatusInfo | null>(null);
 
   const analyze = useCallback(async (files: File[], mode: AnalyzeDocumentsBodyMode, customQuery?: string) => {
     setIsAnalyzing(true);
     setResult("");
     setIsPurged(false);
+    setStatus(null);
+
+    let hadError = false;
 
     try {
       const formData = new FormData();
@@ -37,36 +67,73 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
       if (!reader) throw new Error("Stream not available");
 
       const decoder = new TextDecoder();
-      
+      let buffer = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        // Parse basic SSE format if present, otherwise just append raw chunk
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            if (data === "[DONE]") continue;
-            try {
-              // Try to parse JSON if the chunk is JSON formatted
-              const parsed = JSON.parse(data);
-              setResult((prev) => prev + (parsed.text || parsed.content || ""));
-            } catch {
-              // If not JSON, just append the raw text safely
-              // Handle escaped newlines properly
-              setResult((prev) => prev + data.replace(/\\n/g, '\n'));
+        buffer += decoder.decode(value, { stream: true });
+
+        const lastDoubleNewline = buffer.lastIndexOf("\n\n");
+        if (lastDoubleNewline === -1) continue;
+
+        const completePart = buffer.substring(0, lastDoubleNewline + 2);
+        buffer = buffer.substring(lastDoubleNewline + 2);
+
+        const messages = parseSSEMessages(completePart);
+        for (const msg of messages) {
+          try {
+            const parsed = JSON.parse(msg.data);
+
+            switch (msg.event) {
+              case "chunk":
+                if (parsed.content) {
+                  setResult((prev) => prev + parsed.content);
+                }
+                break;
+              case "status":
+                setStatus({ phase: parsed.phase, message: parsed.message });
+                if (parsed.phase === "complete") {
+                  setIsPurged(true);
+                }
+                break;
+              case "error":
+                hadError = true;
+                onError?.(parsed.message || "Analysis error");
+                break;
+              case "done":
+                break;
             }
-          } else if (line.trim() !== "") {
-            // Raw text fallback
-            setResult((prev) => prev + line.replace(/\\n/g, '\n'));
+          } catch {
+            // skip malformed JSON
           }
         }
       }
 
-      setIsPurged(true);
-      onSuccess?.();
+      if (buffer.trim()) {
+        const remaining = parseSSEMessages(buffer);
+        for (const msg of remaining) {
+          try {
+            const parsed = JSON.parse(msg.data);
+            if (msg.event === "chunk" && parsed.content) {
+              setResult((prev) => prev + parsed.content);
+            } else if (msg.event === "error") {
+              hadError = true;
+              onError?.(parsed.message || "Analysis error");
+            } else if (msg.event === "status" && parsed.phase === "complete") {
+              setIsPurged(true);
+            }
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+
+      if (!hadError) {
+        setIsPurged(true);
+        onSuccess?.();
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "An unknown error occurred";
       onError?.(msg);
@@ -79,7 +146,8 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
     setResult("");
     setIsPurged(false);
     setIsAnalyzing(false);
+    setStatus(null);
   }, []);
 
-  return { analyze, isAnalyzing, result, isPurged, reset };
+  return { analyze, isAnalyzing, result, isPurged, status, reset };
 }

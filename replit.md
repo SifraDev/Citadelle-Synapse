@@ -28,15 +28,16 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - The database package (`@workspace/db`) exists in the workspace but is NOT used by this application
 
 ### In-Memory Data Stores (artifacts/api-server/src/lib/store.ts)
-- `tasks: Map<string, ScheduledTask>` — scheduled analysis tasks
+- `tasks: Map<string, ScheduledTask>` — scheduled tasks with actionType (analyze_document, send_reminder, charge_client, report_messages)
 - `activityLog: ActivityEntry[]` — capped at 500 entries, SSE-broadcast to connected clients
 - `payments: PaymentEntry[]` — crypto payment logs from Telegram bot
 
 ### Telegram Bot (artifacts/api-server/src/lib/telegram.ts)
 - Runs in the same Express process (not a separate service)
 - Uses polling mode with 409 Conflict protection (stops polling on conflict)
-- Handles `/approve`, `/reject`, `/pay` commands from lawyers
-- Sends analysis results and task alerts to configured chat
+- All outgoing messages are logged to the activity store via `logOutgoing()` helper
+- CEO vs client routing based on TELEGRAM_CHAT_ID comparison
+- Supports /preset rules for auto-pricing, client quote flow, and payment buttons
 
 ### Venice AI (artifacts/api-server/src/lib/venice.ts)
 - Uses OpenAI SDK pointed at `https://api.venice.ai/api/v1`

@@ -31,12 +31,24 @@ export const ListTasksResponseItem = zod.object({
   id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
-  mode: zod.enum(["summarize", "extract_clauses", "flag_risks", "custom"]),
+  actionType: zod.enum([
+    "analyze_document",
+    "send_reminder",
+    "charge_client",
+    "report_messages",
+  ]),
+  mode: zod
+    .enum(["summarize", "extract_clauses", "flag_risks", "custom"])
+    .optional(),
   customQuery: zod.string().optional(),
+  reminderText: zod.string().optional(),
+  targetChatId: zod.string().optional(),
+  chargeAmount: zod.number().optional(),
   cronExpression: zod.string().optional(),
   nextRun: zod.date().optional(),
   active: zod.boolean(),
   createdAt: zod.date(),
+  lastRunAt: zod.date().optional(),
 });
 export const ListTasksResponse = zod.array(ListTasksResponseItem);
 
@@ -46,8 +58,19 @@ export const ListTasksResponse = zod.array(ListTasksResponseItem);
 export const CreateTaskBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
-  mode: zod.enum(["summarize", "extract_clauses", "flag_risks", "custom"]),
+  actionType: zod.enum([
+    "analyze_document",
+    "send_reminder",
+    "charge_client",
+    "report_messages",
+  ]),
+  mode: zod
+    .enum(["summarize", "extract_clauses", "flag_risks", "custom"])
+    .optional(),
   customQuery: zod.string().optional(),
+  reminderText: zod.string().optional(),
+  targetChatId: zod.string().optional(),
+  chargeAmount: zod.number().optional(),
   cronExpression: zod.string().optional(),
 });
 

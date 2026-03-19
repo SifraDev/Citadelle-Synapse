@@ -17,6 +17,16 @@ export interface SuccessResponse {
   message: string;
 }
 
+export type ScheduledTaskActionType =
+  (typeof ScheduledTaskActionType)[keyof typeof ScheduledTaskActionType];
+
+export const ScheduledTaskActionType = {
+  analyze_document: "analyze_document",
+  send_reminder: "send_reminder",
+  charge_client: "charge_client",
+  report_messages: "report_messages",
+} as const;
+
 export type ScheduledTaskMode =
   (typeof ScheduledTaskMode)[keyof typeof ScheduledTaskMode];
 
@@ -31,13 +41,28 @@ export interface ScheduledTask {
   id: string;
   name: string;
   description?: string;
-  mode: ScheduledTaskMode;
+  actionType: ScheduledTaskActionType;
+  mode?: ScheduledTaskMode;
   customQuery?: string;
+  reminderText?: string;
+  targetChatId?: string;
+  chargeAmount?: number;
   cronExpression?: string;
   nextRun?: string;
   active: boolean;
   createdAt: string;
+  lastRunAt?: string;
 }
+
+export type CreateTaskInputActionType =
+  (typeof CreateTaskInputActionType)[keyof typeof CreateTaskInputActionType];
+
+export const CreateTaskInputActionType = {
+  analyze_document: "analyze_document",
+  send_reminder: "send_reminder",
+  charge_client: "charge_client",
+  report_messages: "report_messages",
+} as const;
 
 export type CreateTaskInputMode =
   (typeof CreateTaskInputMode)[keyof typeof CreateTaskInputMode];
@@ -52,8 +77,12 @@ export const CreateTaskInputMode = {
 export interface CreateTaskInput {
   name: string;
   description?: string;
-  mode: CreateTaskInputMode;
+  actionType: CreateTaskInputActionType;
+  mode?: CreateTaskInputMode;
   customQuery?: string;
+  reminderText?: string;
+  targetChatId?: string;
+  chargeAmount?: number;
   cronExpression?: string;
 }
 

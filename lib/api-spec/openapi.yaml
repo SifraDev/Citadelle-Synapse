@@ -252,11 +252,20 @@ components:
           type: string
         description:
           type: string
+        actionType:
+          type: string
+          enum: [analyze_document, send_reminder, charge_client, report_messages]
         mode:
           type: string
           enum: [summarize, extract_clauses, flag_risks, custom]
         customQuery:
           type: string
+        reminderText:
+          type: string
+        targetChatId:
+          type: string
+        chargeAmount:
+          type: number
         cronExpression:
           type: string
         nextRun:
@@ -267,10 +276,13 @@ components:
         createdAt:
           type: string
           format: date-time
+        lastRunAt:
+          type: string
+          format: date-time
       required:
         - id
         - name
-        - mode
+        - actionType
         - active
         - createdAt
     CreateTaskInput:
@@ -280,16 +292,25 @@ components:
           type: string
         description:
           type: string
+        actionType:
+          type: string
+          enum: [analyze_document, send_reminder, charge_client, report_messages]
         mode:
           type: string
           enum: [summarize, extract_clauses, flag_risks, custom]
         customQuery:
           type: string
+        reminderText:
+          type: string
+        targetChatId:
+          type: string
+        chargeAmount:
+          type: number
         cronExpression:
           type: string
       required:
         - name
-        - mode
+        - actionType
     ActivityEntry:
       type: object
       properties:

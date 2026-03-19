@@ -4,12 +4,17 @@ export interface ScheduledTask {
   id: string;
   name: string;
   description?: string;
-  mode: "summarize" | "extract_clauses" | "flag_risks" | "custom";
+  actionType: "analyze_document" | "send_reminder" | "charge_client" | "report_messages";
+  mode?: "summarize" | "extract_clauses" | "flag_risks" | "custom";
   customQuery?: string;
+  reminderText?: string;
+  targetChatId?: string;
+  chargeAmount?: number;
   cronExpression?: string;
   nextRun?: string;
   active: boolean;
   createdAt: string;
+  lastRunAt?: string;
 }
 
 export interface ActivityEntry {
@@ -48,7 +53,7 @@ class InMemoryStore {
       createdAt: new Date().toISOString(),
     };
     this.tasks.set(task.id, task);
-    this.addActivity("task", `Scheduled task created: ${task.name}`);
+    this.addActivity("task", `Scheduled task created: ${task.name} (${task.actionType})`);
     return task;
   }
 

@@ -9,7 +9,8 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   Loader2,
-  Lock
+  Lock,
+  Info
 } from "lucide-react";
 import { useAnalyzeStream } from "@/hooks/use-analyze-stream";
 import type { AnalyzeDocumentsBodyMode } from "@workspace/api-client-react";
@@ -21,7 +22,7 @@ export default function Vault() {
   const [customQuery, setCustomQuery] = useState("");
   const { toast } = useToast();
 
-  const { analyze, isAnalyzing, result, isPurged, reset } = useAnalyzeStream({
+  const { analyze, isAnalyzing, result, isPurged, status, reset } = useAnalyzeStream({
     onError: (err) => toast({ title: "Analysis Failed", description: err, variant: "destructive" })
   });
 
@@ -56,7 +57,6 @@ export default function Vault() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
         
-        {/* Left Column: Upload & Config */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="bg-card rounded-2xl border border-border p-5 shadow-lg shadow-black/20 flex flex-col gap-4">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Analysis Mode</h2>
@@ -148,7 +148,6 @@ export default function Vault() {
           )}
         </div>
 
-        {/* Right Column: Streaming Results */}
         <div className="lg:col-span-8 bg-card rounded-2xl border border-border shadow-xl shadow-black/30 overflow-hidden flex flex-col relative">
           <div className="bg-secondary/50 border-b border-border px-5 py-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
@@ -168,6 +167,17 @@ export default function Vault() {
                 <ShieldAlert className="h-12 w-12 mb-3" />
                 <p>Awaiting documents for zero-retention analysis.</p>
               </div>
+            )}
+
+            {status && isAnalyzing && !result && (
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-3 text-primary mb-4"
+              >
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                <span>{status.message}</span>
+              </motion.div>
             )}
             
             {result && (

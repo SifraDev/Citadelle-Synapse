@@ -5,12 +5,17 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateTaskInputActionType } from "./createTaskInputActionType";
 import type { CreateTaskInputMode } from "./createTaskInputMode";
 
 export interface CreateTaskInput {
   name: string;
   description?: string;
-  mode: CreateTaskInputMode;
+  actionType: CreateTaskInputActionType;
+  mode?: CreateTaskInputMode;
   customQuery?: string;
+  reminderText?: string;
+  targetChatId?: string;
+  chargeAmount?: number;
   cronExpression?: string;
 }

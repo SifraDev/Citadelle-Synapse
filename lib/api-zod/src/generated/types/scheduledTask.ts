@@ -5,16 +5,22 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ScheduledTaskActionType } from "./scheduledTaskActionType";
 import type { ScheduledTaskMode } from "./scheduledTaskMode";
 
 export interface ScheduledTask {
   id: string;
   name: string;
   description?: string;
-  mode: ScheduledTaskMode;
+  actionType: ScheduledTaskActionType;
+  mode?: ScheduledTaskMode;
   customQuery?: string;
+  reminderText?: string;
+  targetChatId?: string;
+  chargeAmount?: number;
   cronExpression?: string;
   nextRun?: Date;
   active: boolean;
   createdAt: Date;
+  lastRunAt?: Date;
 }
