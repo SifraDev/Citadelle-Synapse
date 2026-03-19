@@ -97,7 +97,7 @@ router.post("/draft", async (req, res): Promise<void> => {
     doc.fill("#64748b").fontSize(8).font("Helvetica")
       .text(`Analysis Mode: ${(mode || "general").replace(/_/g, " ").toUpperCase()}`, 50);
     doc.fill("#64748b").fontSize(8).font("Helvetica")
-      .text("All personally identifiable information has been redacted.", 50);
+      .text(`PII Status: ${piiStatus === "VERIFIED_CLEAN" ? "Verified Clean — No PII patterns detected" : "Best Effort — Manual review recommended"}`, 50);
 
     doc.moveDown(1);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke("#cbd5e1");
@@ -132,9 +132,6 @@ router.post("/draft", async (req, res): Promise<void> => {
       } else if (/^\d+\.\s/.test(trimmed)) {
         doc.fill("#334155").fontSize(10).font("Helvetica")
           .text(`  ${trimmed}`, 55, undefined, { width: 485 });
-      } else if (trimmed.includes("[REDACTED]") || trimmed.includes("[PARTY") || trimmed.includes("[AMOUNT") || trimmed.includes("[ADDRESS") || trimmed.includes("[DATE") || trimmed.includes("[REFERENCE") || trimmed.includes("[CONTACT") || trimmed.includes("[COMPANY") || trimmed.includes("[FINANCIAL")) {
-        doc.fill("#334155").fontSize(10).font("Helvetica")
-          .text(trimmed, 50, undefined, { width: 495 });
       } else {
         doc.fill("#334155").fontSize(10).font("Helvetica")
           .text(trimmed, 50, undefined, { width: 495 });
