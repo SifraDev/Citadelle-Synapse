@@ -15,6 +15,7 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - **AI**: Venice AI (OpenAI-compatible API via `openai` SDK)
 - **Telegram**: node-telegram-bot-api (in-process, polling mode)
 - **PDF parsing**: pdf-parse (in-memory only)
+- **Blockchain**: viem (Base mainnet, USDC ERC-20 interactions)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
@@ -30,7 +31,16 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 ### In-Memory Data Stores (artifacts/api-server/src/lib/store.ts)
 - `tasks: Map<string, ScheduledTask>` — scheduled tasks with actionType (analyze_document, send_reminder, charge_client, report_messages)
 - `activityLog: ActivityEntry[]` — capped at 500 entries, SSE-broadcast to connected clients
-- `payments: PaymentEntry[]` — crypto payment logs from Telegram bot
+- `payments: PaymentEntry[]` — blockchain payment records with txHash, from/to, amount, status
+- `charges: Map<string, ChargeRequest>` — USDC charge requests (amount, label, status, paidAt, txHash)
+
+### Crypto / Base Chain (artifacts/api-server/src/lib/crypto.ts)
+- Uses `viem` to interact with Base mainnet (chain ID 8453)
+- Agent wallet: 0x0128D1EE63C0e99CB3f587E982619bC8B00Ad443
+- USDC contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals)
+- Reads real USDC balance via `balanceOf` on-chain call
+- Background poller watches USDC Transfer events to agent wallet every 15s
+- Detected payments auto-match against open charges, update status, log activity, and send Telegram notifications
 
 ### Telegram Bot (artifacts/api-server/src/lib/telegram.ts)
 - Runs in the same Express process (not a separate service)
@@ -38,6 +48,7 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - All outgoing messages are logged to the activity store via `logOutgoing()` helper
 - CEO vs client routing based on TELEGRAM_CHAT_ID comparison
 - Supports /preset rules for auto-pricing, client quote flow, and payment buttons
+- Supports /charge command for CEO to create USDC charges via Telegram
 
 ### Venice AI (artifacts/api-server/src/lib/venice.ts)
 - Uses OpenAI SDK pointed at `https://api.venice.ai/api/v1`
@@ -106,6 +117,11 @@ artifacts-monorepo/
 - `GET /api/telegram/status` — Telegram bot connection status
 - `POST /api/telegram/send` — Send message via Telegram bot
 - `GET /api/payments` — Get crypto payment logs
+- `GET /api/payments/wallet` — Agent wallet info + real USDC balance (on-chain)
+- `GET /api/payments/charges` — List all charge requests
+- `POST /api/payments/charge` — Create USDC charge request
+- `GET /api/payments/charge/:id` — Get charge details (with wallet/contract info for payment)
+- `POST /api/payments/confirm` — Confirm payment with transaction hash
 
 ## Root Scripts
 

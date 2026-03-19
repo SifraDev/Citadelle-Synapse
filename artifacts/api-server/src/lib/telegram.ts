@@ -1,5 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { store } from "./store.js";
+import { getAgentWallet } from "./crypto.js";
 
 export let bot: TelegramBot | null = null;
 let botInfo: { username: string } | null = null;
@@ -49,21 +50,40 @@ export function initTelegramBot(): void {
       store.addActivity("telegram", `Incoming from ${isCEO ? "CEO" : `@${msg.from?.username || "client"}`}: ${text.substring(0, 200)}`);
 
       if (isCEO) {
+        if (text.startsWith("/charge ")) {
+            const parts = text.substring(8).trim().split(/\s+/);
+            const amount = Number(parts[0]);
+            const label = parts.slice(1).join(" ") || undefined;
+            if (isNaN(amount) || amount <= 0) {
+              const errMsg = "Usage: /charge <amount> [client name]\nExample: /charge 500 Acme Corp";
+              bot?.sendMessage(Number(chatId), errMsg);
+              logOutgoing(chatId, errMsg);
+              return;
+            }
+            const charge = store.addCharge(String(amount), label);
+            const chargeMsg = `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nCharge ID: ${charge.id}\nWallet: ${getAgentWallet()}\nNetwork: Base\n\nShare the Charge ID with the client to pay via the web platform.`;
+            bot?.sendMessage(Number(chatId), chargeMsg);
+            logOutgoing(chatId, chargeMsg);
+            return;
+        }
+
         if (clientsWaitingForPrice.has(chatId) && !isNaN(Number(text))) {
             const clientChatId = clientsWaitingForPrice.get(chatId)!;
             const amount = Number(text);
             clientsWaitingForPrice.delete(chatId);
 
-            const confirmMsg = `✅ **Confirmed.** Sending invoice for ${amount} USDC to the client.`;
+            const charge = store.addCharge(String(amount), `telegram-client-${clientChatId}`);
+
+            const confirmMsg = `✅ Confirmed. Charge created for ${amount} USDC.\nCharge ID: ${charge.id}`;
             bot?.sendMessage(Number(chatId), confirmMsg);
             logOutgoing(chatId, confirmMsg);
 
             const options = {
                 reply_markup: {
-                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, callback_data: `pay_${amount}` }]]
+                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, callback_data: `charge_${charge.id}` }]]
                 }
             };
-            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**. Please settle the payment to proceed:`;
+            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nWallet: \`${getAgentWallet()}\`\nNetwork: Base (USDC)\n\nPlease proceed with payment:`;
             bot?.sendMessage(Number(clientChatId), invoiceMsg, options);
             logOutgoing(clientChatId, invoiceMsg);
             store.addActivity("payment", `CEO set price: ${amount} USDC for client`);
@@ -76,7 +96,7 @@ export function initTelegramBot(): void {
                 const keyword = parts[1].toLowerCase();
                 const amount = Number(parts[2]);
                 preApprovedInvoices.set(keyword, amount);
-                const ruleMsg = `✅ **Auto-Rule Saved:** If a client mentions "${keyword}", I will charge ${amount} USDC automatically.`;
+                const ruleMsg = `✅ Auto-Rule Saved: If a client mentions "${keyword}", I will charge ${amount} USDC automatically.`;
                 bot?.sendMessage(Number(chatId), ruleMsg);
                 logOutgoing(chatId, ruleMsg);
                 return;
@@ -92,7 +112,7 @@ export function initTelegramBot(): void {
                 ]
             }
         };
-        const ackMsg = `💼 **Citadelle Node Online.**\n\nI have logged your request. Should I prepare an invoice or stay on standby for incoming inquiries?`;
+        const ackMsg = `💼 Citadelle Node Online.\n\nI have logged your request. Should I prepare an invoice or stay on standby for incoming inquiries?`;
         bot?.sendMessage(Number(chatId), ackMsg, options);
         logOutgoing(chatId, ackMsg);
 
@@ -154,16 +174,21 @@ export function initTelegramBot(): void {
             }
         }
 
-        if (data.startsWith("pay_")) {
-            const amount = data.replace("pay_", "");
+        if (data.startsWith("charge_")) {
+            const chargeId = data.replace("charge_", "");
+            const charge = store.getCharge(chargeId);
             bot?.answerCallbackQuery(query.id);
-            const payMsg = `🔗 Redirecting to Locus Secure Checkout for **${amount} USDC**... (Bridge pending)`;
-            bot?.sendMessage(Number(chatId), payMsg);
-            logOutgoing(chatId, payMsg);
-            store.addActivity("payment", `Client initiated ${amount} USDC payment protocol`);
-
-            if (ceoChatId) {
-                const ceoNotify = `💰 Client is attempting to process payment for **${amount} USDC**.`;
+            if (charge) {
+                const payMsg = `💳 Payment Details:\n\nAmount: ${charge.amount} USDC\nWallet: ${getAgentWallet()}\nNetwork: Base (Chain ID 8453)\nToken: USDC (${store.getCharge(chargeId) ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" : ""})\n\nSend exactly ${charge.amount} USDC to the wallet above on Base network. Open the web platform to pay via MetaMask.`;
+                bot?.sendMessage(Number(chatId), payMsg);
+                logOutgoing(chatId, payMsg);
+            } else {
+                const errMsg = "Charge not found or expired.";
+                bot?.sendMessage(Number(chatId), errMsg);
+                logOutgoing(chatId, errMsg);
+            }
+            if (ceoChatId && chatId !== ceoChatId) {
+                const ceoNotify = `💰 Client viewed payment details for charge ${chargeId}.`;
                 bot?.sendMessage(Number(ceoChatId), ceoNotify);
                 logOutgoing(ceoChatId, ceoNotify);
             }

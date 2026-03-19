@@ -19,6 +19,10 @@ import type {
 import type {
   ActivityEntry,
   AnalyzeDocumentsBody,
+  ChargeDetail,
+  ChargeRequest,
+  ConfirmPaymentInput,
+  CreateChargeInput,
   CreateTaskInput,
   DraftInput,
   ErrorResponse,
@@ -30,6 +34,7 @@ import type {
   SuccessResponse,
   TelegramMessageInput,
   TelegramStatus,
+  WalletInfo,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -958,3 +963,494 @@ export function useGetPayments<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get agent wallet info and USDC balance
+ */
+export const getGetWalletInfoUrl = () => {
+  return `/api/payments/wallet`;
+};
+
+export const getWalletInfo = async (
+  options?: RequestInit,
+): Promise<WalletInfo> => {
+  return customFetch<WalletInfo>(getGetWalletInfoUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWalletInfoQueryKey = () => {
+  return [`/api/payments/wallet`] as const;
+};
+
+export const getGetWalletInfoQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWalletInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWalletInfo>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWalletInfoQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalletInfo>>> = ({
+    signal,
+  }) => getWalletInfo({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWalletInfo>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWalletInfoQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWalletInfo>>
+>;
+export type GetWalletInfoQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get agent wallet info and USDC balance
+ */
+
+export function useGetWalletInfo<
+  TData = Awaited<ReturnType<typeof getWalletInfo>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWalletInfo>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWalletInfoQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all charge requests
+ */
+export const getListChargesUrl = () => {
+  return `/api/payments/charges`;
+};
+
+export const listCharges = async (
+  options?: RequestInit,
+): Promise<ChargeRequest[]> => {
+  return customFetch<ChargeRequest[]>(getListChargesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListChargesQueryKey = () => {
+  return [`/api/payments/charges`] as const;
+};
+
+export const getListChargesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCharges>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCharges>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListChargesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCharges>>> = ({
+    signal,
+  }) => listCharges({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCharges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListChargesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCharges>>
+>;
+export type ListChargesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all charge requests
+ */
+
+export function useListCharges<
+  TData = Awaited<ReturnType<typeof listCharges>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCharges>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListChargesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a USDC charge request
+ */
+export const getCreateChargeUrl = () => {
+  return `/api/payments/charge`;
+};
+
+export const createCharge = async (
+  createChargeInput: CreateChargeInput,
+  options?: RequestInit,
+): Promise<ChargeRequest> => {
+  return customFetch<ChargeRequest>(getCreateChargeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createChargeInput),
+  });
+};
+
+export const getCreateChargeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCharge>>,
+    TError,
+    { data: BodyType<CreateChargeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCharge>>,
+  TError,
+  { data: BodyType<CreateChargeInput> },
+  TContext
+> => {
+  const mutationKey = ["createCharge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCharge>>,
+    { data: BodyType<CreateChargeInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCharge(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateChargeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCharge>>
+>;
+export type CreateChargeMutationBody = BodyType<CreateChargeInput>;
+export type CreateChargeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a USDC charge request
+ */
+export const useCreateCharge = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCharge>>,
+    TError,
+    { data: BodyType<CreateChargeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCharge>>,
+  TError,
+  { data: BodyType<CreateChargeInput> },
+  TContext
+> => {
+  return useMutation(getCreateChargeMutationOptions(options));
+};
+
+/**
+ * @summary Get charge details for payment
+ */
+export const getGetChargeUrl = (id: string) => {
+  return `/api/payments/charge/${id}`;
+};
+
+export const getCharge = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ChargeDetail> => {
+  return customFetch<ChargeDetail>(getGetChargeUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetChargeQueryKey = (id: string) => {
+  return [`/api/payments/charge/${id}`] as const;
+};
+
+export const getGetChargeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCharge>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCharge>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetChargeQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCharge>>> = ({
+    signal,
+  }) => getCharge(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getCharge>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetChargeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCharge>>
+>;
+export type GetChargeQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get charge details for payment
+ */
+
+export function useGetCharge<
+  TData = Awaited<ReturnType<typeof getCharge>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCharge>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetChargeQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Cancel/expire a pending charge
+ */
+export const getDeleteChargeUrl = (id: string) => {
+  return `/api/payments/charge/${id}`;
+};
+
+export const deleteCharge = async (
+  id: string,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getDeleteChargeUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteChargeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCharge>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCharge>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteCharge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCharge>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCharge(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteChargeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCharge>>
+>;
+
+export type DeleteChargeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Cancel/expire a pending charge
+ */
+export const useDeleteCharge = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCharge>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCharge>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteChargeMutationOptions(options));
+};
+
+/**
+ * @summary Confirm a USDC payment with transaction hash
+ */
+export const getConfirmPaymentUrl = () => {
+  return `/api/payments/confirm`;
+};
+
+export const confirmPayment = async (
+  confirmPaymentInput: ConfirmPaymentInput,
+  options?: RequestInit,
+): Promise<PaymentEntry> => {
+  return customFetch<PaymentEntry>(getConfirmPaymentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmPaymentInput),
+  });
+};
+
+export const getConfirmPaymentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPayment>>,
+    TError,
+    { data: BodyType<ConfirmPaymentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmPayment>>,
+  TError,
+  { data: BodyType<ConfirmPaymentInput> },
+  TContext
+> => {
+  const mutationKey = ["confirmPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmPayment>>,
+    { data: BodyType<ConfirmPaymentInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmPayment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmPayment>>
+>;
+export type ConfirmPaymentMutationBody = BodyType<ConfirmPaymentInput>;
+export type ConfirmPaymentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Confirm a USDC payment with transaction hash
+ */
+export const useConfirmPayment = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPayment>>,
+    TError,
+    { data: BodyType<ConfirmPaymentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmPayment>>,
+  TError,
+  { data: BodyType<ConfirmPaymentInput> },
+  TContext
+> => {
+  return useMutation(getConfirmPaymentMutationOptions(options));
+};

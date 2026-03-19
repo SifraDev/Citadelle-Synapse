@@ -161,3 +161,93 @@ export const GetPaymentsResponseItem = zod.object({
   network: zod.string().optional(),
 });
 export const GetPaymentsResponse = zod.array(GetPaymentsResponseItem);
+
+/**
+ * @summary Get agent wallet info and USDC balance
+ */
+export const GetWalletInfoResponse = zod.object({
+  address: zod.string(),
+  usdcBalance: zod.string(),
+  usdcContract: zod.string().optional(),
+  network: zod.string(),
+  chainId: zod.number(),
+});
+
+/**
+ * @summary List all charge requests
+ */
+export const ListChargesResponseItem = zod.object({
+  id: zod.string(),
+  amount: zod.string(),
+  label: zod.string().optional(),
+  status: zod.enum(["pending", "paid", "expired"]),
+  createdAt: zod.date(),
+  paidAt: zod.date().optional(),
+  txHash: zod.string().optional(),
+  paidFrom: zod.string().optional(),
+});
+export const ListChargesResponse = zod.array(ListChargesResponseItem);
+
+/**
+ * @summary Create a USDC charge request
+ */
+export const CreateChargeBody = zod.object({
+  amount: zod.number(),
+  label: zod.string().optional(),
+});
+
+/**
+ * @summary Get charge details for payment
+ */
+export const GetChargeParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetChargeResponse = zod.object({
+  id: zod.string(),
+  amount: zod.string(),
+  label: zod.string().optional(),
+  status: zod.enum(["pending", "paid", "expired"]),
+  createdAt: zod.date(),
+  paidAt: zod.date().optional(),
+  txHash: zod.string().optional(),
+  paidFrom: zod.string().optional(),
+  walletAddress: zod.string(),
+  usdcContract: zod.string().optional(),
+  network: zod.string(),
+  chainId: zod.number(),
+});
+
+/**
+ * @summary Cancel/expire a pending charge
+ */
+export const DeleteChargeParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const DeleteChargeResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Confirm a USDC payment with transaction hash
+ */
+export const ConfirmPaymentBody = zod.object({
+  txHash: zod.string().describe("Transaction hash to verify on-chain"),
+  chargeId: zod
+    .string()
+    .optional()
+    .describe("Optional charge ID to link this payment to"),
+});
+
+export const ConfirmPaymentResponse = zod.object({
+  id: zod.string(),
+  txHash: zod.string().optional(),
+  from: zod.string().optional(),
+  to: zod.string().optional(),
+  amount: zod.string(),
+  token: zod.string(),
+  status: zod.enum(["pending", "confirmed", "failed"]),
+  timestamp: zod.date(),
+  network: zod.string().optional(),
+});

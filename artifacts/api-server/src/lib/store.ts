@@ -25,6 +25,17 @@ export interface ActivityEntry {
   metadata?: Record<string, unknown>;
 }
 
+export interface ChargeRequest {
+  id: string;
+  amount: string;
+  label?: string;
+  status: "pending" | "paid" | "expired";
+  createdAt: string;
+  paidAt?: string;
+  txHash?: string;
+  paidFrom?: string;
+}
+
 export interface PaymentEntry {
   id: string;
   txHash?: string;
@@ -43,6 +54,7 @@ class InMemoryStore {
   tasks: Map<string, ScheduledTask> = new Map();
   activityLog: ActivityEntry[] = [];
   payments: PaymentEntry[] = [];
+  charges: Map<string, ChargeRequest> = new Map();
   private sseClients: Set<(data: ActivityEntry) => void> = new Set();
 
   addTask(input: Omit<ScheduledTask, "id" | "createdAt" | "active">): ScheduledTask {
@@ -114,6 +126,36 @@ class InMemoryStore {
 
   getPayments(limit: number = 50): PaymentEntry[] {
     return this.payments.slice(-limit);
+  }
+
+  addCharge(amount: string, label?: string): ChargeRequest {
+    const charge: ChargeRequest = {
+      id: randomUUID(),
+      amount,
+      label,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    this.charges.set(charge.id, charge);
+    this.addActivity("payment", `Charge created: ${amount} USDC${label ? ` for ${label}` : ""}`, {
+      chargeId: charge.id,
+    });
+    return charge;
+  }
+
+  getCharge(id: string): ChargeRequest | undefined {
+    return this.charges.get(id);
+  }
+
+  updateCharge(id: string, updates: Partial<ChargeRequest>): ChargeRequest | undefined {
+    const charge = this.charges.get(id);
+    if (!charge) return undefined;
+    Object.assign(charge, updates);
+    return charge;
+  }
+
+  listCharges(): ChargeRequest[] {
+    return Array.from(this.charges.values());
   }
 }
 

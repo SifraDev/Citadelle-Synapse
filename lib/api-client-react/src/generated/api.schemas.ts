@@ -145,6 +145,70 @@ export interface PaymentEntry {
   network?: string;
 }
 
+export interface WalletInfo {
+  address: string;
+  usdcBalance: string;
+  usdcContract?: string;
+  network: string;
+  chainId: number;
+}
+
+export type ChargeRequestStatus =
+  (typeof ChargeRequestStatus)[keyof typeof ChargeRequestStatus];
+
+export const ChargeRequestStatus = {
+  pending: "pending",
+  paid: "paid",
+  expired: "expired",
+} as const;
+
+export interface ChargeRequest {
+  id: string;
+  amount: string;
+  label?: string;
+  status: ChargeRequestStatus;
+  createdAt: string;
+  paidAt?: string;
+  txHash?: string;
+  paidFrom?: string;
+}
+
+export interface CreateChargeInput {
+  amount: number;
+  label?: string;
+}
+
+export type ChargeDetailStatus =
+  (typeof ChargeDetailStatus)[keyof typeof ChargeDetailStatus];
+
+export const ChargeDetailStatus = {
+  pending: "pending",
+  paid: "paid",
+  expired: "expired",
+} as const;
+
+export interface ChargeDetail {
+  id: string;
+  amount: string;
+  label?: string;
+  status: ChargeDetailStatus;
+  createdAt: string;
+  paidAt?: string;
+  txHash?: string;
+  paidFrom?: string;
+  walletAddress: string;
+  usdcContract?: string;
+  network: string;
+  chainId: number;
+}
+
+export interface ConfirmPaymentInput {
+  /** Transaction hash to verify on-chain */
+  txHash: string;
+  /** Optional charge ID to link this payment to */
+  chargeId?: string;
+}
+
 export type AnalyzeDocumentsBodyMode =
   (typeof AnalyzeDocumentsBodyMode)[keyof typeof AnalyzeDocumentsBodyMode];
 

@@ -157,17 +157,24 @@ async function executeTask(task: import("../lib/store.js").ScheduledTask): Promi
     case "charge_client": {
       const amount = task.chargeAmount || 0;
       const targetChat = task.targetChatId || undefined;
-      if (amount > 0 && targetChat) {
+      if (amount > 0) {
+        const charge = store.addCharge(String(amount), task.description || task.name);
+        const walletAddr = "0x0128D1EE63C0e99CB3f587E982619bC8B00Ad443";
+        if (targetChat) {
+          await sendMessage(
+            `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nWallet: <code>${walletAddr}</code>\nNetwork: Base\nCharge ID: <code>${charge.id}</code>\n\nSend ${amount} USDC to the wallet above on Base network.`,
+            targetChat
+          );
+        }
         await sendMessage(
-          `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\n\nPlease proceed with payment via Locus Protocol.`,
-          targetChat
+          `💳 <b>Charge Created (Scheduled)</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\nCharge ID: <code>${charge.id}</code>`
         );
-        store.addActivity("payment", `Task "${task.name}": Invoice for ${amount} USDC sent to client`);
+        store.addActivity("payment", `Task "${task.name}": Charge created for ${amount} USDC (ID: ${charge.id})`);
       } else {
         await sendMessage(
-          `💳 <b>Charge Client Task</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\n${task.description || ""}\n\n<i>No target client set — configure a client chat ID to auto-send invoices.</i>`
+          `💳 <b>Charge Client Task</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\n${task.description || ""}\n\n<i>Set a positive chargeAmount to create a real charge.</i>`
         );
-        store.addActivity("task", `Task "${task.name}": Charge notification sent (no target client)`);
+        store.addActivity("task", `Task "${task.name}": Charge notification sent (no amount)`);
       }
       break;
     }

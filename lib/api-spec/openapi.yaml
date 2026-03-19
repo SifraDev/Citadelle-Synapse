@@ -252,6 +252,139 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PaymentEntry"
+  /payments/wallet:
+    get:
+      operationId: getWalletInfo
+      tags: [payments]
+      summary: Get agent wallet info and USDC balance
+      responses:
+        "200":
+          description: Wallet information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletInfo"
+  /payments/charges:
+    get:
+      operationId: listCharges
+      tags: [payments]
+      summary: List all charge requests
+      responses:
+        "200":
+          description: List of charges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChargeRequest"
+  /payments/charge:
+    post:
+      operationId: createCharge
+      tags: [payments]
+      summary: Create a USDC charge request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChargeInput"
+      responses:
+        "201":
+          description: Charge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeRequest"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /payments/charge/{id}:
+    get:
+      operationId: getCharge
+      tags: [payments]
+      summary: Get charge details for payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Charge details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeDetail"
+        "404":
+          description: Charge not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteCharge
+      tags: [payments]
+      summary: Cancel/expire a pending charge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Charge cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Cannot delete paid charge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Charge not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /payments/confirm:
+    post:
+      operationId: confirmPayment
+      tags: [payments]
+      summary: Confirm a USDC payment with transaction hash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmPaymentInput"
+      responses:
+        "200":
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentEntry"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Transaction already recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -422,3 +555,106 @@ components:
         - token
         - status
         - timestamp
+    WalletInfo:
+      type: object
+      properties:
+        address:
+          type: string
+        usdcBalance:
+          type: string
+        usdcContract:
+          type: string
+        network:
+          type: string
+        chainId:
+          type: integer
+      required:
+        - address
+        - usdcBalance
+        - network
+        - chainId
+    ChargeRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, expired]
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        txHash:
+          type: string
+        paidFrom:
+          type: string
+      required:
+        - id
+        - amount
+        - status
+        - createdAt
+    CreateChargeInput:
+      type: object
+      properties:
+        amount:
+          type: number
+        label:
+          type: string
+      required:
+        - amount
+    ChargeDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, expired]
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        txHash:
+          type: string
+        paidFrom:
+          type: string
+        walletAddress:
+          type: string
+        usdcContract:
+          type: string
+        network:
+          type: string
+        chainId:
+          type: integer
+      required:
+        - id
+        - amount
+        - status
+        - createdAt
+        - walletAddress
+        - network
+        - chainId
+    ConfirmPaymentInput:
+      type: object
+      properties:
+        txHash:
+          type: string
+          description: Transaction hash to verify on-chain
+        chargeId:
+          type: string
+          description: Optional charge ID to link this payment to
+      required:
+        - txHash
