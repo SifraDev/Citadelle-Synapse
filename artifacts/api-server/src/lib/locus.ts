@@ -257,6 +257,17 @@ async function pollLocusTransactions(): Promise<void> {
                 store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: commission });
               } else {
                 console.log(`[Locus] Commission ${commission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
+                store.addPayment({
+                  txHash: sendResult.tx_hash,
+                  from: "Locus Treasury",
+                  to: agentWallet,
+                  amount: commission.toString(),
+                  token: "USDC",
+                  status: "confirmed",
+                  timestamp: new Date().toISOString(),
+                  network: "Base (Commission)",
+                  paymentMethod: "locus",
+                });
                 const swapResult = await performAutonomousSwap(commission);
                 if (!swapResult.success && !swapResult.delegationDenied) {
                   console.error(`[Uniswap] Autonomous swap failed: ${swapResult.error}`);
