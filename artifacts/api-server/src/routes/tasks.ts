@@ -159,16 +159,21 @@ async function executeTask(task: import("../lib/store.js").ScheduledTask): Promi
       const targetChat = task.targetChatId || undefined;
       if (amount > 0) {
         const charge = store.addCharge(String(amount), task.description || task.name);
+        const { getLocusWalletAddress } = await import("../lib/locus.js");
+        const locusWallet = await getLocusWalletAddress();
+        if (locusWallet) {
+          store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
+        }
         const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
         const payUrl = domain ? `https://${domain}/pay/${charge.id}` : `/pay/${charge.id}`;
         if (targetChat) {
           await sendMessage(
-            `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>\n\nClick the link above to pay via MetaMask on Base network.`,
+            `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>${locusWallet ? "\n💎 <i>Powered by Locus</i>" : ""}\n\nClick the link above to pay via MetaMask on Base network.`,
             targetChat
           );
         }
         await sendMessage(
-          `💳 <b>Charge Created (Scheduled)</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>`
+          `💳 <b>Charge Created (Scheduled)</b>\n\nTask: ${task.name}\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>${locusWallet ? "\n💎 <i>Powered by Locus</i>" : ""}`
         );
         store.addActivity("payment", `Task "${task.name}": Charge created for ${amount} USDC — ${payUrl}`);
       } else {

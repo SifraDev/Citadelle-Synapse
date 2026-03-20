@@ -34,6 +34,7 @@ export interface ChargeRequest {
   paidAt?: string;
   txHash?: string;
   paidFrom?: string;
+  locusWalletAddress?: string;
 }
 
 export interface PaymentEntry {
@@ -46,6 +47,7 @@ export interface PaymentEntry {
   status: "pending" | "confirmed" | "failed";
   timestamp: string;
   network?: string;
+  paymentMethod?: "direct" | "locus";
 }
 
 const MAX_ACTIVITY_ENTRIES = 500;

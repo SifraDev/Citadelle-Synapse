@@ -1,49 +1,268 @@
-// artifacts/api-server/src/lib/locus.ts
+import { store } from "./store.js";
+import { sendMessage } from "./telegram.js";
 
 const LOCUS_API_BASE = "https://beta-api.paywithlocus.com/api";
 
 export interface LocusBalance {
-  balance: string;
-  token: string;
   wallet_address: string;
+  chain: string;
+  usdc_balance: string;
+  allowance: number;
+  max_transaction_size: number | null;
 }
 
-export async function getAgentBalance(): Promise<LocusBalance | null> {
-  const apiKey = process.env.LOCUS_API_KEY;
+export interface LocusTransaction {
+  id: string;
+  type: string;
+  amount: string;
+  token: string;
+  from_address: string;
+  to_address: string;
+  tx_hash: string;
+  status: string;
+  memo?: string;
+  created_at: string;
+}
 
+export interface LocusSendResult {
+  tx_hash: string;
+  amount: number;
+  to_address: string;
+  status: string;
+}
+
+let _cachedBalance: LocusBalance | null = null;
+let _lastBalanceFetch = 0;
+let _pollInterval: ReturnType<typeof setInterval> | null = null;
+let _lastSeenTxId: string | null = null;
+
+function getApiKey(): string | null {
+  return process.env.LOCUS_API_KEY || null;
+}
+
+async function locusRequest<T>(
+  method: string,
+  path: string,
+  body?: Record<string, unknown>
+): Promise<{ success: boolean; data?: T; error?: string; message?: string }> {
+  const apiKey = getApiKey();
   if (!apiKey) {
-    console.error("[Treasury] ❌ LOCUS_API_KEY is missing in Secrets.");
-    return null;
+    return { success: false, error: "LOCUS_API_KEY not configured" };
   }
 
   try {
-    const response = await fetch(`${LOCUS_API_BASE}/pay/balance`, {
-      method: "GET",
+    const options: RequestInit = {
+      method,
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Locus API responded with status: ${response.status}`);
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    };
+    if (body) {
+      options.body = JSON.stringify(body);
     }
 
-    // Casteamos a 'any' para evitar que TypeScript marque error de tipado estricto
+    const response = await fetch(`${LOCUS_API_BASE}${path}`, options);
     const json = (await response.json()) as any;
 
-    if (json.success && json.data) {
-      console.log(`[Treasury] ✅ Balance verified: ${json.data.balance} ${json.data.token}`);
+    if (!response.ok || !json.success) {
       return {
-        balance: json.data.balance,
-        token: json.data.token,
-        wallet_address: json.data.wallet_address
+        success: false,
+        error: json.error || json.message || `HTTP ${response.status}`,
+        message: json.message,
       };
-    } else {
-      throw new Error(json.message || "Failed to parse balance data.");
     }
-  } catch (error) {
-    console.error("[Treasury] ❌ Failed to fetch balance:", error);
-    return null;
+
+    return { success: true, data: json.data as T };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: msg };
+  }
+}
+
+export function isLocusConfigured(): boolean {
+  return !!getApiKey();
+}
+
+export async function getLocusBalance(): Promise<LocusBalance | null> {
+  const now = Date.now();
+  if (_cachedBalance && now - _lastBalanceFetch < 10000) {
+    return _cachedBalance;
+  }
+
+  const result = await locusRequest<LocusBalance>("GET", "/pay/balance");
+  if (result.success && result.data) {
+    _cachedBalance = result.data;
+    _lastBalanceFetch = now;
+    return result.data;
+  }
+
+  console.error("[Locus] Failed to fetch balance:", result.error);
+  return _cachedBalance;
+}
+
+export async function getLocusWalletAddress(): Promise<string | null> {
+  const balance = await getLocusBalance();
+  return balance?.wallet_address || null;
+}
+
+export async function getLocusTransactions(
+  limit = 50,
+  offset = 0
+): Promise<{ transactions: LocusTransaction[]; total: number } | null> {
+  const result = await locusRequest<{
+    transactions: LocusTransaction[];
+    pagination: { total: number; limit: number; offset: number; has_more: boolean };
+  }>("GET", `/pay/transactions?limit=${limit}&offset=${offset}`);
+
+  if (result.success && result.data) {
+    return {
+      transactions: result.data.transactions,
+      total: result.data.pagination.total,
+    };
+  }
+
+  console.error("[Locus] Failed to fetch transactions:", result.error);
+  return null;
+}
+
+export async function locusSendPayment(
+  toAddress: string,
+  amount: number,
+  memo: string
+): Promise<LocusSendResult | { error: string }> {
+  const result = await locusRequest<LocusSendResult>("POST", "/pay/send", {
+    to_address: toAddress,
+    amount,
+    memo,
+  });
+
+  if (result.success && result.data) {
+    console.log(`[Locus] Payment sent: ${amount} USDC to ${toAddress} (tx: ${result.data.tx_hash})`);
+    store.addActivity("payment", `Locus payment sent: ${amount} USDC to ${toAddress.slice(0, 10)}...`, {
+      txHash: result.data.tx_hash,
+      to: toAddress,
+      amount: String(amount),
+      via: "locus",
+    });
+    return result.data;
+  }
+
+  const error = result.message || result.error || "Send failed";
+  console.error("[Locus] Send payment failed:", error);
+  return { error };
+}
+
+export async function locusHealthCheck(): Promise<{
+  connected: boolean;
+  walletAddress?: string;
+  balance?: string;
+  chain?: string;
+  allowance?: number;
+}> {
+  const balance = await getLocusBalance();
+  if (!balance) {
+    return { connected: false };
+  }
+
+  console.log(
+    `[Locus] Treasury connected: ${balance.usdc_balance} USDC | Wallet: ${balance.wallet_address} | Allowance: ${balance.allowance} USDC`
+  );
+
+  return {
+    connected: true,
+    walletAddress: balance.wallet_address,
+    balance: balance.usdc_balance,
+    chain: balance.chain,
+    allowance: balance.allowance,
+  };
+}
+
+async function pollLocusTransactions(): Promise<void> {
+  try {
+    const txData = await getLocusTransactions(10);
+    if (!txData || txData.transactions.length === 0) return;
+
+    const incoming = txData.transactions.filter(
+      (tx) => tx.type === "receive" || tx.type === "incoming" || tx.type === "credit"
+    );
+
+    for (const tx of incoming) {
+      if (_lastSeenTxId && tx.id === _lastSeenTxId) break;
+
+      const existingPayments = store.getPayments(500);
+      if (tx.tx_hash && existingPayments.some((p) => p.txHash === tx.tx_hash)) continue;
+
+      const amount = tx.amount;
+      const charges = store.listCharges();
+      const matchedCharge = charges.find(
+        (c) =>
+          c.status === "pending" &&
+          Math.abs(parseFloat(c.amount) - parseFloat(amount)) < 0.01
+      );
+
+      if (matchedCharge) {
+        store.updateCharge(matchedCharge.id, {
+          status: "paid",
+          txHash: tx.tx_hash,
+          paidAt: tx.created_at || new Date().toISOString(),
+          paidFrom: tx.from_address,
+        });
+      }
+
+      store.addPayment({
+        txHash: tx.tx_hash,
+        from: tx.from_address,
+        to: tx.to_address,
+        amount,
+        token: tx.token || "USDC",
+        status: "confirmed",
+        timestamp: tx.created_at || new Date().toISOString(),
+        network: "Base (Locus)",
+        paymentMethod: "locus",
+      });
+
+      await sendMessage(
+        `💰 <b>USDC Received via Locus</b>\n\nAmount: ${amount} USDC\nFrom: <code>${tx.from_address}</code>\nTx: <a href="https://basescan.org/tx/${tx.tx_hash}">${tx.tx_hash?.slice(0, 16)}...</a>`
+      );
+
+      store.addActivity("payment", `Locus incoming: ${amount} USDC from ${tx.from_address?.slice(0, 10)}...`, {
+        txHash: tx.tx_hash,
+        from: tx.from_address,
+        amount,
+        via: "locus",
+      });
+    }
+
+    if (incoming.length > 0) {
+      _lastSeenTxId = incoming[0].id;
+    }
+  } catch (err) {
+    console.error("[Locus] Transaction poll error:", err);
+  }
+}
+
+export async function startLocusMonitor(): Promise<void> {
+  if (_pollInterval) return;
+  if (!isLocusConfigured()) {
+    console.log("[Locus] Not configured, skipping monitor");
+    return;
+  }
+
+  const txData = await getLocusTransactions(1);
+  if (txData && txData.transactions.length > 0) {
+    _lastSeenTxId = txData.transactions[0].id;
+  }
+
+  console.log("[Locus] Starting transaction monitor (20s interval)");
+  store.addActivity("system", "Locus transaction monitor started");
+
+  _pollInterval = setInterval(pollLocusTransactions, 20000);
+}
+
+export function stopLocusMonitor(): void {
+  if (_pollInterval) {
+    clearInterval(_pollInterval);
+    _pollInterval = null;
   }
 }

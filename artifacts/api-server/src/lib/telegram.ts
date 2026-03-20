@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { store } from "./store.js";
 import { getAgentWallet } from "./crypto.js";
+import { isLocusConfigured, getLocusBalance, getLocusWalletAddress } from "./locus.js";
 
 function getPaymentUrl(chargeId: string): string {
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
@@ -48,7 +49,7 @@ export function initTelegramBot(): void {
       console.error("[Telegram] Failed to get bot info:", err.message);
     });
 
-    bot.on("message", (msg) => {
+    bot.on("message", async (msg) => {
       const chatId = msg.chat.id.toString();
       const text = msg.text?.trim() || "";
       const isCEO = ceoChatId && String(chatId) === String(ceoChatId);
@@ -58,6 +59,22 @@ export function initTelegramBot(): void {
       store.addActivity("telegram", `Incoming from ${isCEO ? "CEO" : `@${msg.from?.username || "client"}`}: ${text.substring(0, 200)}`);
 
       if (isCEO) {
+        if (text === "/balance") {
+          let balanceMsg = "💰 <b>Treasury Status</b>\n\n";
+          if (isLocusConfigured()) {
+            const locusInfo = await getLocusBalance();
+            if (locusInfo) {
+              balanceMsg += `<b>Locus Wallet</b>\nAddress: <code>${locusInfo.wallet_address}</code>\nBalance: ${locusInfo.usdc_balance} USDC\nAllowance: ${locusInfo.allowance} USDC\nChain: ${locusInfo.chain}\n\n`;
+            } else {
+              balanceMsg += "Locus: ❌ Failed to fetch\n\n";
+            }
+          }
+          balanceMsg += `<b>Direct Wallet</b>\nAddress: <code>${getAgentWallet()}</code>\nNetwork: Base`;
+          bot?.sendMessage(Number(chatId), balanceMsg, { parse_mode: "HTML" });
+          logOutgoing(chatId, balanceMsg);
+          return;
+        }
+
         if (text.startsWith("/charge ")) {
             const parts = text.substring(8).trim().split(/\s+/);
             const amount = Number(parts[0]);
@@ -69,9 +86,16 @@ export function initTelegramBot(): void {
               return;
             }
             const charge = store.addCharge(String(amount), label);
+
+            const locusWallet = await getLocusWalletAddress();
+            if (locusWallet) {
+              store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
+            }
+
             const payUrl = getPaymentUrl(charge.id);
-            const chargeMsg = `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nPayment Link: ${payUrl}\n\nShare this link with the client to pay via MetaMask.`;
-            bot?.sendMessage(Number(chatId), chargeMsg);
+            const walletDisplay = locusWallet || getAgentWallet();
+            const chargeMsg = `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nPayment Link: ${payUrl}\nWallet: <code>${walletDisplay}</code>${locusWallet ? "\n💎 Powered by Locus" : ""}\n\nShare this link with the client to pay via MetaMask.`;
+            bot?.sendMessage(Number(chatId), chargeMsg, { parse_mode: "HTML" });
             logOutgoing(chatId, chargeMsg);
             return;
         }
@@ -82,9 +106,14 @@ export function initTelegramBot(): void {
             clientsWaitingForPrice.delete(chatId);
 
             const charge = store.addCharge(String(amount), `telegram-client-${clientChatId}`);
+            const locusWallet = await getLocusWalletAddress();
+            if (locusWallet) {
+              store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
+            }
             const payUrl = getPaymentUrl(charge.id);
+            const walletDisplay = locusWallet || getAgentWallet();
 
-            const confirmMsg = `✅ Confirmed. Charge created for ${amount} USDC.\nPayment Link: ${payUrl}`;
+            const confirmMsg = `✅ Confirmed. Charge created for ${amount} USDC.${locusWallet ? " 💎 Locus" : ""}\nPayment Link: ${payUrl}`;
             bot?.sendMessage(Number(chatId), confirmMsg);
             logOutgoing(chatId, confirmMsg);
 
@@ -93,7 +122,7 @@ export function initTelegramBot(): void {
                     inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, url: payUrl }]]
                 }
             };
-            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nPay here: ${payUrl}\n\nOr send ${amount} USDC directly to:\nWallet: \`${getAgentWallet()}\`\nNetwork: Base`;
+            const invoiceMsg = `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nPay here: ${payUrl}\n\nOr send ${amount} USDC directly to:\nWallet: \`${walletDisplay}\`\nNetwork: Base`;
             bot?.sendMessage(Number(clientChatId), invoiceMsg, options);
             logOutgoing(clientChatId, invoiceMsg);
             store.addActivity("payment", `CEO set price: ${amount} USDC for client`);
@@ -110,6 +139,32 @@ export function initTelegramBot(): void {
                 bot?.sendMessage(Number(chatId), ruleMsg);
                 logOutgoing(chatId, ruleMsg);
                 return;
+            }
+        }
+
+        if (text.startsWith("/send ")) {
+            const parts = text.substring(6).trim().split(/\s+/);
+            if (parts.length >= 3) {
+              const toAddress = parts[0];
+              const sendAmount = Number(parts[1]);
+              const memo = parts.slice(2).join(" ");
+              if (!toAddress.startsWith("0x") || isNaN(sendAmount) || sendAmount <= 0) {
+                bot?.sendMessage(Number(chatId), "Usage: /send <0x_address> <amount> <memo>\nExample: /send 0xABC... 10 Refund for client");
+                return;
+              }
+              if (!isLocusConfigured()) {
+                bot?.sendMessage(Number(chatId), "❌ Locus not configured. Cannot send payments.");
+                return;
+              }
+              const { locusSendPayment: sendPayment } = await import("./locus.js");
+              const result = await sendPayment(toAddress, sendAmount, memo);
+              if ("error" in result) {
+                bot?.sendMessage(Number(chatId), `❌ Send failed: ${result.error}`);
+              } else {
+                const successMsg = `✅ Sent ${sendAmount} USDC to <code>${toAddress}</code>\nTx: <a href="https://basescan.org/tx/${result.tx_hash}">${result.tx_hash.slice(0, 16)}...</a>`;
+                bot?.sendMessage(Number(chatId), successMsg, { parse_mode: "HTML" });
+              }
+              return;
             }
         }
 
@@ -138,6 +193,10 @@ export function initTelegramBot(): void {
         if (matchedKeyword) {
             const amount = preApprovedInvoices.get(matchedKeyword)!;
             const charge = store.addCharge(String(amount), `auto-${matchedKeyword}-${chatId}`);
+            const locusWallet = await getLocusWalletAddress();
+            if (locusWallet) {
+              store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
+            }
             const payUrl = getPaymentUrl(charge.id);
             const options = {
                 reply_markup: {
@@ -164,7 +223,7 @@ export function initTelegramBot(): void {
       }
     });
 
-    bot.on("callback_query", (query) => {
+    bot.on("callback_query", async (query) => {
         const chatId = query.message?.chat.id.toString();
         const data = query.data;
         const isCEO = ceoChatId && String(chatId) === String(ceoChatId);
@@ -180,9 +239,11 @@ export function initTelegramBot(): void {
             }
             if (data === "manual_bill") {
                 bot?.answerCallbackQuery(query.id);
-                const msg = "Locus payment gateway integration pending in the next phase.";
-                bot?.sendMessage(Number(chatId), msg);
-                logOutgoing(chatId, msg);
+                bot?.sendMessage(
+                  Number(chatId),
+                  "Enter the invoice amount in USDC (number only).\nI will create a Locus-powered charge and generate a payment link."
+                );
+                clientsWaitingForPrice.set(chatId, chatId);
             }
         }
 
@@ -191,7 +252,9 @@ export function initTelegramBot(): void {
             const charge = store.getCharge(chargeId);
             bot?.answerCallbackQuery(query.id);
             if (charge) {
-                const payMsg = `💳 Payment Details:\n\nAmount: ${charge.amount} USDC\nWallet: ${getAgentWallet()}\nNetwork: Base (Chain ID 8453)\nToken: USDC (${store.getCharge(chargeId) ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" : ""})\n\nSend exactly ${charge.amount} USDC to the wallet above on Base network. Open the web platform to pay via MetaMask.`;
+                const walletAddr = charge.locusWalletAddress || getAgentWallet();
+                const isLocus = !!charge.locusWalletAddress;
+                const payMsg = `💳 Payment Details:\n\nAmount: ${charge.amount} USDC\nWallet: ${walletAddr}\nNetwork: Base (Chain ID 8453)\nToken: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)${isLocus ? "\n💎 Powered by Locus" : ""}\n\nSend exactly ${charge.amount} USDC to the wallet above on Base network.`;
                 bot?.sendMessage(Number(chatId), payMsg);
                 logOutgoing(chatId, payMsg);
             } else {

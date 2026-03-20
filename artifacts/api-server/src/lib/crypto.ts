@@ -198,7 +198,7 @@ export async function startTransferMonitor(): Promise<void> {
   }
 }
 
-export async function verifyTransaction(txHash: string): Promise<{
+export async function verifyTransaction(txHash: string, recipientAddress?: string): Promise<{
   verified: boolean;
   from?: string;
   to?: string;
@@ -213,16 +213,17 @@ export async function verifyTransaction(txHash: string): Promise<{
       return { verified: false, error: "Transaction reverted" };
     }
 
+    const targetWallet = (recipientAddress || AGENT_WALLET).toLowerCase();
     const transferLog = receipt.logs.find(
       (log) =>
         log.address.toLowerCase() === USDC_ADDRESS.toLowerCase() &&
         log.topics[0] === "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" &&
         log.topics[2] &&
-        ("0x" + log.topics[2].slice(26)).toLowerCase() === AGENT_WALLET.toLowerCase()
+        ("0x" + log.topics[2].slice(26)).toLowerCase() === targetWallet
     );
 
     if (!transferLog) {
-      return { verified: false, error: "No USDC transfer to agent wallet found in transaction" };
+      return { verified: false, error: `No USDC transfer to ${recipientAddress ? "Locus" : "agent"} wallet found in transaction` };
     }
 
     const from = "0x" + (transferLog.topics[1] || "").slice(26);

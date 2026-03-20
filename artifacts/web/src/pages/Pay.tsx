@@ -9,6 +9,7 @@ import {
   Link2,
   Shield,
   AlertCircle,
+  Diamond,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -142,6 +143,7 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
   }
 
   const isPaid = charge.status === "paid";
+  const isLocusCharge = (charge as any).paymentMethod === "locus";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -152,6 +154,12 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
           </div>
           <h1 className="text-2xl font-display text-foreground">Venice AI Legal Platform</h1>
           <p className="text-muted-foreground text-sm mt-1">Secure Payment Request</p>
+          {isLocusCharge && (
+            <div className="flex items-center gap-1.5 justify-center mt-2 text-violet-400 text-xs font-medium">
+              <Diamond className="w-3 h-3" />
+              Powered by Locus
+            </div>
+          )}
         </div>
 
         <div className="bg-secondary/50 rounded-xl p-6 mb-6 border border-border">

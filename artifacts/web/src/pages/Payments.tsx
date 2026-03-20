@@ -15,6 +15,8 @@ import {
   Link2,
   DollarSign,
   RefreshCw,
+  Diamond,
+  Shield,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -54,6 +56,9 @@ export default function Payments() {
   const [payingChargeId, setPayingChargeId] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const locusData = (walletInfo as any)?.locus;
+  const locusConnected = locusData?.connected === true;
 
   const connectWallet = useCallback(async () => {
     if (!window.ethereum) {
@@ -95,7 +100,7 @@ export default function Payments() {
     }
   }, []);
 
-  const payCharge = useCallback(async (chargeId: string, amount: string) => {
+  const payCharge = useCallback(async (chargeId: string, amount: string, targetWallet?: string) => {
     if (!window.ethereum || !connectedAddress) {
       alert("Connect your wallet first.");
       return;
@@ -113,7 +118,8 @@ export default function Payments() {
       }
 
       setTxStatus("Sending USDC transfer...");
-      const data = encodeTransferData(walletInfo?.address || "", amount);
+      const payTo = targetWallet || walletInfo?.address || "";
+      const data = encodeTransferData(payTo, amount);
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [{
@@ -153,12 +159,10 @@ export default function Payments() {
     refetchCharges();
   };
 
-  const copyAddress = () => {
-    if (walletInfo?.address) {
-      navigator.clipboard.writeText(walletInfo.address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const copyAddress = (addr: string) => {
+    navigator.clipboard.writeText(addr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const pendingCharges = charges?.filter(c => c.status === "pending") || [];
@@ -174,9 +178,15 @@ export default function Payments() {
             <Wallet className="w-8 h-8 text-primary" />
             USDC Payments
           </h1>
-          <p className="text-muted-foreground mt-1">Real USDC payments on Base network via MetaMask.</p>
+          <p className="text-muted-foreground mt-1">Real USDC payments on Base network via MetaMask & Locus.</p>
         </div>
         <div className="flex items-center gap-3">
+          {locusConnected && (
+            <div className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2.5 py-1 rounded-lg text-xs font-medium">
+              <Diamond className="w-3 h-3" />
+              Locus
+            </div>
+          )}
           {connectedAddress ? (
             <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-3 py-1.5 rounded-lg text-sm font-mono">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -195,16 +205,44 @@ export default function Payments() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${locusConnected ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
+        {locusConnected && (
+          <div className="bg-card rounded-xl border border-violet-500/20 p-5 shadow-lg">
+            <p className="text-sm text-violet-400 font-medium mb-1 flex items-center gap-1.5">
+              <Diamond className="w-3.5 h-3.5" />
+              Locus Treasury
+            </p>
+            {loadingWallet ? (
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div>
+                <p className="text-2xl font-display text-foreground">
+                  {parseFloat(locusData?.balance || "0").toFixed(2)}
+                  <span className="text-sm text-violet-400 ml-2">USDC</span>
+                </p>
+                <button
+                  onClick={() => copyAddress(locusData?.walletAddress || "")}
+                  className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground mt-1"
+                >
+                  {truncateAddress(locusData?.walletAddress || "")}
+                  {copied ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="bg-card rounded-xl border border-border p-5 shadow-lg">
-          <p className="text-sm text-muted-foreground font-medium mb-1">Agent Wallet</p>
+          <p className="text-sm text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5" />
+            {locusConnected ? "Direct Wallet" : "Agent Wallet"}
+          </p>
           {loadingWallet ? (
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           ) : (
             <div>
-              <button onClick={copyAddress} className="flex items-center gap-1.5 text-sm font-mono text-primary hover:underline">
+              <button onClick={() => copyAddress(walletInfo?.address || "")} className="flex items-center gap-1.5 text-sm font-mono text-primary hover:underline">
                 {truncateAddress(walletInfo?.address || "")}
-                {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {!locusConnected && (copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />)}
               </button>
               <p className="text-xs text-muted-foreground mt-1">Base Network</p>
             </div>
@@ -269,6 +307,12 @@ export default function Payments() {
               {creatingCharge ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
               Create Charge
             </button>
+            {locusConnected && (
+              <p className="text-xs text-violet-400 flex items-center gap-1 justify-center">
+                <Diamond className="w-3 h-3" />
+                Charges route to Locus treasury
+              </p>
+            )}
           </div>
         </div>
 
@@ -281,33 +325,39 @@ export default function Payments() {
             <p className="text-muted-foreground text-sm text-center py-6">No pending charges. Create one to get started.</p>
           ) : (
             <div className="space-y-3 max-h-[300px] overflow-y-auto">
-              {pendingCharges.map((charge) => (
-                <div key={charge.id} className="bg-secondary/50 rounded-lg p-4 border border-border flex items-center justify-between">
-                  <div>
-                    <p className="text-foreground font-semibold">{charge.amount} USDC</p>
-                    {charge.label && <p className="text-sm text-muted-foreground">{charge.label}</p>}
-                    <p className="text-xs text-muted-foreground font-mono mt-1">ID: {charge.id.slice(0, 8)}...</p>
+              {pendingCharges.map((charge) => {
+                const isLocusCharge = !!(charge as any).locusWalletAddress;
+                return (
+                  <div key={charge.id} className={`bg-secondary/50 rounded-lg p-4 border flex items-center justify-between ${isLocusCharge ? "border-violet-500/20" : "border-border"}`}>
+                    <div>
+                      <p className="text-foreground font-semibold flex items-center gap-2">
+                        {charge.amount} USDC
+                        {isLocusCharge && <Diamond className="w-3 h-3 text-violet-400" />}
+                      </p>
+                      {charge.label && <p className="text-sm text-muted-foreground">{charge.label}</p>}
+                      <p className="text-xs text-muted-foreground font-mono mt-1">ID: {charge.id.slice(0, 8)}...</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {connectedAddress ? (
+                        <button
+                          onClick={() => payCharge(charge.id, charge.amount, (charge as any).locusWalletAddress)}
+                          disabled={payingChargeId === charge.id}
+                          className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50"
+                        >
+                          {payingChargeId === charge.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Wallet className="w-3.5 h-3.5" />
+                          )}
+                          Pay
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Connect wallet to pay</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {connectedAddress ? (
-                      <button
-                        onClick={() => payCharge(charge.id, charge.amount)}
-                        disabled={payingChargeId === charge.id}
-                        className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50"
-                      >
-                        {payingChargeId === charge.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Wallet className="w-3.5 h-3.5" />
-                        )}
-                        Pay
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Connect wallet to pay</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {txStatus && (
@@ -353,59 +403,65 @@ export default function Payments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="px-6 py-4 text-muted-foreground font-mono text-xs">
-                      {format(new Date(payment.timestamp), "MMM d, HH:mm:ss")}
-                    </td>
-                    <td className="px-6 py-4">
-                      {payment.txHash ? (
-                        <a
-                          href={`https://basescan.org/tx/${payment.txHash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 text-primary hover:underline font-mono text-xs"
-                        >
-                          {truncateAddress(payment.txHash)}
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground italic text-xs">N/A</span>
-                      )}
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{payment.network || "Base"}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
-                        {truncateAddress(payment.from || "")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
-                        {truncateAddress(payment.to || "")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-foreground flex items-center gap-1.5">
-                        {payment.amount}
-                        <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded uppercase">
-                          {payment.token}
+                {payments.map((payment) => {
+                  const isLocus = payment.network?.includes("Locus");
+                  return (
+                    <tr key={payment.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="px-6 py-4 text-muted-foreground font-mono text-xs">
+                        {format(new Date(payment.timestamp), "MMM d, HH:mm:ss")}
+                      </td>
+                      <td className="px-6 py-4">
+                        {payment.txHash ? (
+                          <a
+                            href={`https://basescan.org/tx/${payment.txHash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 text-primary hover:underline font-mono text-xs"
+                          >
+                            {truncateAddress(payment.txHash)}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground italic text-xs">N/A</span>
+                        )}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{payment.network || "Base"}</span>
+                          {isLocus && <Diamond className="w-2.5 h-2.5 text-violet-400" />}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
+                          {truncateAddress(payment.from || "")}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
-                        ${payment.status === "confirmed" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
-                          payment.status === "pending" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                          "bg-destructive/10 text-destructive border-destructive/20"}
-                      `}>
-                        {payment.status === "confirmed" && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        {payment.status === "pending" && <Clock className="w-3.5 h-3.5" />}
-                        {payment.status === "failed" && <XCircle className="w-3.5 h-3.5" />}
-                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
+                          {truncateAddress(payment.to || "")}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-foreground flex items-center gap-1.5">
+                          {payment.amount}
+                          <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded uppercase">
+                            {payment.token}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
+                          ${payment.status === "confirmed" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                            payment.status === "pending" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                            "bg-destructive/10 text-destructive border-destructive/20"}
+                        `}>
+                          {payment.status === "confirmed" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          {payment.status === "pending" && <Clock className="w-3.5 h-3.5" />}
+                          {payment.status === "failed" && <XCircle className="w-3.5 h-3.5" />}
+                          {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

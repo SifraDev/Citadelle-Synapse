@@ -41,6 +41,15 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - Reads real USDC balance via `balanceOf` on-chain call
 - Background poller watches USDC Transfer events to agent wallet every 15s
 - Detected payments auto-match against open charges, update status, log activity, and send Telegram notifications
+- `verifyTransaction(txHash, recipientAddress?)` validates against either agent wallet or Locus wallet
+
+### Locus Payment Infrastructure (artifacts/api-server/src/lib/locus.ts)
+- Locus API: `https://beta-api.paywithlocus.com/api` (LOCUS_API_KEY + LOCUS_PRIVATE_KEY in secrets)
+- Locus wallet: dynamically fetched via `GET /api/pay/balance` (currently 0xa1dea7...713c)
+- Functions: getLocusBalance (10s cache), getLocusTransactions, locusSendPayment, locusHealthCheck, getLocusWalletAddress, startLocusMonitor
+- Monitor: 20s polling via `GET /api/pay/transactions`, auto-matches incoming USDC against pending charges
+- All charges default to Locus wallet as payment target; payments carry `paymentMethod: "direct" | "locus"`
+- `/payments/locus/send` is auth-guarded (requires ADMIN_API_TOKEN or internal Telegram source header)
 
 ### Telegram Bot (artifacts/api-server/src/lib/telegram.ts)
 - Runs in the same Express process (not a separate service)
@@ -117,11 +126,14 @@ artifacts-monorepo/
 - `GET /api/telegram/status` — Telegram bot connection status
 - `POST /api/telegram/send` — Send message via Telegram bot
 - `GET /api/payments` — Get crypto payment logs
-- `GET /api/payments/wallet` — Agent wallet info + real USDC balance (on-chain)
+- `GET /api/payments/wallet` — Agent wallet + Locus treasury info + real USDC balance (on-chain)
 - `GET /api/payments/charges` — List all charge requests
-- `POST /api/payments/charge` — Create USDC charge request
-- `GET /api/payments/charge/:id` — Get charge details (with wallet/contract info for payment)
-- `POST /api/payments/confirm` — Confirm payment with transaction hash
+- `POST /api/payments/charge` — Create USDC charge request (auto-sets Locus wallet)
+- `GET /api/payments/charge/:id` — Get charge details (with wallet/contract info, paymentMethod)
+- `POST /api/payments/confirm` — Confirm payment with transaction hash (Locus-aware verification)
+- `DELETE /api/payments/charge/:id` — Cancel/expire a pending charge
+- `GET /api/payments/locus/transactions` — Locus transaction history
+- `POST /api/payments/locus/send` — Send USDC via Locus (auth-guarded)
 
 ## Root Scripts
 
