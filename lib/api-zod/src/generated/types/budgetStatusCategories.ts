@@ -12,5 +12,6 @@ export type BudgetStatusCategories = {
     limit?: number;
     percentUsed?: number;
     estimatedCost?: number;
+    diemCost?: number;
   };
 };

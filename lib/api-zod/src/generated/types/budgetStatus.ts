@@ -6,11 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetStatusCategories } from "./budgetStatusCategories";
+import type { BudgetStatusDiem } from "./budgetStatusDiem";
 import type { BudgetStatusOverall } from "./budgetStatusOverall";
 
 export interface BudgetStatus {
   categories: BudgetStatusCategories;
   overall: BudgetStatusOverall;
+  diem: BudgetStatusDiem;
   lastResetAt: Date;
   nextResetAt: Date;
 }

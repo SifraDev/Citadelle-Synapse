@@ -16,6 +16,7 @@ export * from "./analyzeDocumentsBody";
 export * from "./analyzeDocumentsBodyMode";
 export * from "./budgetStatus";
 export * from "./budgetStatusCategories";
+export * from "./budgetStatusDiem";
 export * from "./budgetStatusOverall";
 export * from "./chargeDetail";
 export * from "./chargeDetailPaymentMethod";

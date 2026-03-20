@@ -63,6 +63,7 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  computeCost?: string;
   decision: DecisionRecord;
 }
 
@@ -432,7 +433,8 @@ export async function recordActionReceipt(
     execution: description,
     verification: txHash ? `Tx ${txHash.slice(0, 16)}... recorded` : "Action logged",
     outcome: "Action completed successfully",
-  }
+  },
+  computeCost?: string
 ): Promise<void> {
   addAgentLogEntry({
     type: actionType,
@@ -441,6 +443,7 @@ export async function recordActionReceipt(
     amount,
     token,
     counterparty,
+    computeCost,
     decision,
   });
 

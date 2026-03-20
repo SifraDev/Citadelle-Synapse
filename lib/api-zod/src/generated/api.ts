@@ -375,6 +375,10 @@ export const GetAgentActionLogResponseItem = zod.object({
   amount: zod.string().optional(),
   token: zod.string().optional(),
   counterparty: zod.string().optional(),
+  computeCost: zod
+    .string()
+    .optional()
+    .describe('Compute cost in DIEM credits (e.g. \"0.04 DIEM\")'),
   decision: zod.object({
     trigger: zod.string(),
     plan: zod.string(),
@@ -398,12 +402,19 @@ export const GetBudgetStatusResponse = zod.object({
       limit: zod.number().optional(),
       percentUsed: zod.number().optional(),
       estimatedCost: zod.number().optional(),
+      diemCost: zod.number().optional(),
     }),
   ),
   overall: zod.object({
     used: zod.number().optional(),
     limit: zod.number().optional(),
     percentUsed: zod.number().optional(),
+  }),
+  diem: zod.object({
+    consumed: zod.number(),
+    budget: zod.number(),
+    percentUsed: zod.number(),
+    unit: zod.string(),
   }),
   lastResetAt: zod.date(),
   nextResetAt: zod.date(),

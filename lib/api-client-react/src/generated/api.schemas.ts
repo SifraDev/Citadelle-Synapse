@@ -340,6 +340,8 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  /** Compute cost in DIEM credits (e.g. "0.04 DIEM") */
+  computeCost?: string;
   decision: DecisionRecord;
 }
 
@@ -349,6 +351,7 @@ export type BudgetStatusCategories = {
     limit?: number;
     percentUsed?: number;
     estimatedCost?: number;
+    diemCost?: number;
   };
 };
 
@@ -358,9 +361,17 @@ export type BudgetStatusOverall = {
   percentUsed?: number;
 };
 
+export type BudgetStatusDiem = {
+  consumed: number;
+  budget: number;
+  percentUsed: number;
+  unit: string;
+};
+
 export interface BudgetStatus {
   categories: BudgetStatusCategories;
   overall: BudgetStatusOverall;
+  diem: BudgetStatusDiem;
   lastResetAt: string;
   nextResetAt: string;
 }

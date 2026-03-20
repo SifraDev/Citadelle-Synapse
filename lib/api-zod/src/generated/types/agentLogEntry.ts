@@ -16,5 +16,7 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  /** Compute cost in DIEM credits (e.g. "0.04 DIEM") */
+  computeCost?: string;
   decision: DecisionRecord;
 }

@@ -997,6 +997,9 @@ components:
           type: string
         counterparty:
           type: string
+        computeCost:
+          type: string
+          description: Compute cost in DIEM credits (e.g. "0.04 DIEM")
         decision:
           $ref: "#/components/schemas/DecisionRecord"
       required:
@@ -1039,6 +1042,8 @@ components:
                 type: integer
               estimatedCost:
                 type: number
+              diemCost:
+                type: number
         overall:
           type: object
           properties:
@@ -1048,6 +1053,22 @@ components:
               type: integer
             percentUsed:
               type: integer
+        diem:
+          type: object
+          properties:
+            consumed:
+              type: number
+            budget:
+              type: number
+            percentUsed:
+              type: integer
+            unit:
+              type: string
+          required:
+            - consumed
+            - budget
+            - percentUsed
+            - unit
         lastResetAt:
           type: string
           format: date-time
@@ -1057,6 +1078,7 @@ components:
       required:
         - categories
         - overall
+        - diem
         - lastResetAt
         - nextResetAt
     X402Info:

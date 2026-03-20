@@ -6,6 +6,7 @@ import { store } from "../lib/store.js";
 import { sendMessage } from "../lib/telegram.js";
 import { x402Middleware, getX402PricingInfo, type X402PaymentContext } from "../lib/x402.js";
 import { recordActionReceipt } from "../lib/erc8004.js";
+import { getVeniceDiemCost } from "../lib/budget.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -116,10 +117,11 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       `📋 <b>Document Analysis Complete</b>\n\nMode: ${mode}\nDocuments: ${files.length}\n\n${truncatedSummary}${fullResponse.length > 500 ? "..." : ""}`
     );
 
+    const diemCost = `${getVeniceDiemCost()} DIEM`;
     if (x402Payment) {
       recordActionReceipt(
         "payment",
-        `x402-paid analysis completed: ${mode} mode, ${files.length} documents, payment ${x402Payment.amount} USDC`,
+        `x402-paid analysis completed: ${mode} mode, ${files.length} documents, payment ${x402Payment.amount} USDC (compute: ${diemCost})`,
         x402Payment.txHash,
         x402Payment.amount,
         "USDC",
@@ -127,15 +129,16 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
         {
           trigger: `x402 payment verified (${x402Payment.amount} USDC from ${x402Payment.from.slice(0, 10)}...)`,
           plan: `Process ${files.length} document(s) in ${mode} mode via Venice AI`,
-          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced`,
+          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced, compute cost: ${diemCost}`,
           verification: `Payment tx ${x402Payment.txHash.slice(0, 16)}... confirmed on-chain`,
           outcome: `x402-paid analysis delivered successfully`,
-        }
+        },
+        diemCost
       );
     } else {
       recordActionReceipt(
         "payment",
-        `Analysis completed: ${mode} mode, ${files.length} documents (admin-authenticated)`,
+        `Analysis completed: ${mode} mode, ${files.length} documents (admin-authenticated, compute: ${diemCost})`,
         undefined,
         "0",
         "USDC",
@@ -143,10 +146,11 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
         {
           trigger: `Admin-authenticated analysis request (${files.length} document(s), ${mode} mode)`,
           plan: `Process ${files.length} document(s) in ${mode} mode via Venice AI`,
-          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced`,
+          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced, compute cost: ${diemCost}`,
           verification: `Request authenticated via admin API token (internal proxy)`,
           outcome: `Analysis delivered to authenticated dashboard user`,
-        }
+        },
+        diemCost
       );
     }
 
