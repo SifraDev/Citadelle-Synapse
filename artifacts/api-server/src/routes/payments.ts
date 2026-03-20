@@ -24,6 +24,7 @@ import {
   checkRegistration,
   registerAgent,
   getAgentLog,
+  recordActionReceipt,
 } from "../lib/erc8004.js";
 
 const router: IRouter = Router();
@@ -320,6 +321,15 @@ router.post("/payments/delegation", async (req, res): Promise<void> => {
 
   await sendMessage(
     `🔑 <b>Delegation Granted</b>\n\nDelegator: <code>${delegator.slice(0, 10)}...</code>\nAgent: <code>${delegate.slice(0, 10)}...</code>\nDaily Limit: ${dailyLimitUsdc} USDC\nExpires: ${new Date(expiresAt * 1000).toISOString()}`
+  );
+
+  recordActionReceipt(
+    "delegation",
+    `Delegation granted by ${delegator.slice(0, 10)}... — limit ${dailyLimitUsdc} USDC`,
+    undefined,
+    dailyLimitUsdc.toString(),
+    "USDC",
+    delegator
   );
 
   res.json(getDelegationStatus());
