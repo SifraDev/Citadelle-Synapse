@@ -816,7 +816,23 @@ components:
           type: string
         eip712:
           type: object
-          additionalProperties: true
+          properties:
+            domain:
+              type: object
+              properties:
+                name:
+                  type: string
+                version:
+                  type: string
+                chainId:
+                  type: integer
+            types:
+              type: object
+              additionalProperties: true
+            primaryType:
+              type: string
+            allowedContract:
+              type: string
       required:
         - active
     SubmitDelegationInput:

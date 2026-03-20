@@ -5,5 +5,12 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { DelegationInfoEip712Domain } from "./delegationInfoEip712Domain";
+import type { DelegationInfoEip712Types } from "./delegationInfoEip712Types";
 
-export type DelegationInfoEip712 = { [key: string]: unknown };
+export type DelegationInfoEip712 = {
+  domain?: DelegationInfoEip712Domain;
+  types?: DelegationInfoEip712Types;
+  primaryType?: string;
+  allowedContract?: string;
+};

@@ -255,7 +255,20 @@ export interface DelegationStatus {
   reason?: string;
 }
 
-export type DelegationInfoEip712 = { [key: string]: unknown };
+export type DelegationInfoEip712Domain = {
+  name?: string;
+  version?: string;
+  chainId?: number;
+};
+
+export type DelegationInfoEip712Types = { [key: string]: unknown };
+
+export type DelegationInfoEip712 = {
+  domain?: DelegationInfoEip712Domain;
+  types?: DelegationInfoEip712Types;
+  primaryType?: string;
+  allowedContract?: string;
+};
 
 export interface DelegationInfo {
   active: boolean;

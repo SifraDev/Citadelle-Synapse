@@ -291,7 +291,20 @@ export const GetDelegationResponse = zod.object({
   expired: zod.boolean().optional(),
   signedAt: zod.date().optional(),
   reason: zod.string().optional(),
-  eip712: zod.record(zod.string(), zod.unknown()).optional(),
+  eip712: zod
+    .object({
+      domain: zod
+        .object({
+          name: zod.string().optional(),
+          version: zod.string().optional(),
+          chainId: zod.number().optional(),
+        })
+        .optional(),
+      types: zod.record(zod.string(), zod.unknown()).optional(),
+      primaryType: zod.string().optional(),
+      allowedContract: zod.string().optional(),
+    })
+    .optional(),
 });
 
 /**

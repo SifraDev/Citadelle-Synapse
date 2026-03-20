@@ -147,7 +147,8 @@ export function initTelegramBot(): void {
         if (text === "/gas") {
           const ethBal = await getEthBalance();
           const delegationInfo = getDelegationStatus();
-          let gasMsg = `⛽ <b>Gas Treasury</b>\n\nETH Balance: ${parseFloat(ethBal).toFixed(6)} ETH\nWallet: <code>${getAgentWallet()}</code>\nNetwork: Base`;
+          const walletAddr = getAgentWallet();
+          let gasMsg = `⛽ <b>Gas Treasury</b>\n\nETH Balance: ${parseFloat(ethBal).toFixed(6)} ETH\nWallet: <a href="https://basescan.org/address/${walletAddr}">${walletAddr}</a>\nNetwork: Base`;
           if (delegationInfo.active) {
             gasMsg += `\n\n🔑 Delegation: Active\nDaily: ${delegationInfo.dailyUsedUsdc?.toFixed(2)}/${delegationInfo.dailyLimitUsdc} USDC`;
           } else {

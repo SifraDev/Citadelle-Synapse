@@ -23,6 +23,8 @@ export * from "./createTaskInputActionType";
 export * from "./createTaskInputMode";
 export * from "./delegationInfo";
 export * from "./delegationInfoEip712";
+export * from "./delegationInfoEip712Domain";
+export * from "./delegationInfoEip712Types";
 export * from "./delegationStatus";
 export * from "./draftInput";
 export * from "./errorResponse";
