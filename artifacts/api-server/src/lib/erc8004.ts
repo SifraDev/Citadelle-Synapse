@@ -10,6 +10,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { getAgentWallet } from "./crypto.js";
+import * as fs from "fs";
+import * as path from "path";
 
 const IDENTITY_REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
 const REPUTATION_REGISTRY = "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as const;
@@ -17,6 +19,7 @@ const REPUTATION_REGISTRY = "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as cons
 const IDENTITY_ABI = parseAbi([
   "function register(string tokenURI) returns (uint256)",
   "function balanceOf(address owner) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
   "function tokenURI(uint256 tokenId) view returns (string)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 ]);
@@ -28,6 +31,8 @@ const REPUTATION_ABI = parseAbi([
 ]);
 
 const transport = http("https://mainnet.base.org");
+
+const STATE_FILE = path.join(process.cwd(), ".erc8004-state.json");
 
 export interface AgentIdentity {
   registered: boolean;
@@ -55,6 +60,46 @@ let _agentId: number | null = null;
 let _registrationTxHash: string | null = null;
 let _lastCheckResult: AgentIdentity | null = null;
 const _agentLog: AgentLogEntry[] = [];
+
+interface PendingReceipt {
+  actionType: AgentLogEntry["type"];
+  description: string;
+  txHash?: string;
+  amount?: string;
+  token?: string;
+  counterparty?: string;
+}
+const _pendingReceipts: PendingReceipt[] = [];
+
+function loadPersistedState() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+      if (data.agentId !== undefined && data.agentId !== null) {
+        _agentId = data.agentId;
+      }
+      if (data.registrationTxHash) {
+        _registrationTxHash = data.registrationTxHash;
+      }
+      console.log(`[ERC-8004] Loaded persisted state: agentId=${_agentId}, txHash=${_registrationTxHash?.slice(0, 16) ?? "none"}`);
+    }
+  } catch {
+    // no persisted state
+  }
+}
+
+function persistState() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({
+      agentId: _agentId,
+      registrationTxHash: _registrationTxHash,
+      walletAddress: getAgentWallet(),
+      updatedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // non-critical
+  }
+}
 
 function getAccount() {
   const pk = process.env.PRIVATE_KEY;
@@ -146,7 +191,7 @@ async function _doCheckRegistration(): Promise<AgentIdentity> {
         result.reputationScore = Number(score);
         result.feedbackCount = Number(count);
       } catch {
-        // reputation query failed, non-blocking
+        // reputation query non-blocking
       }
     }
 
@@ -197,7 +242,6 @@ export async function registerAgent(): Promise<{
   }
 
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "venice-legal.replit.app";
-  const agentJson = buildAgentJson(domain);
   const tokenURI = `https://${domain}/.well-known/agent.json`;
 
   try {
@@ -235,6 +279,7 @@ export async function registerAgent(): Promise<{
       }
     }
 
+    persistState();
     _lastCheckTime = 0;
     _lastCheckResult = null;
 
@@ -248,6 +293,8 @@ export async function registerAgent(): Promise<{
     await sendMessage(
       `🆔 <b>ERC-8004 Agent Registered</b>\n\nAgent ID: ${agentId}\nRegistry: <code>${IDENTITY_REGISTRY}</code>\nTx: <a href="https://basescan.org/tx/${txHash}">${txHash.slice(0, 16)}...</a>`
     );
+
+    await flushPendingReceipts();
 
     return { success: true, agentId: agentId ?? undefined, txHash };
   } catch (err) {
@@ -271,10 +318,7 @@ export async function submitReputationFeedback(
   }
 
   if (_agentId === null) {
-    const check = await checkRegistration();
-    if (!check.registered || check.agentId === undefined) {
-      return { success: false, error: "Agent not registered — register first" };
-    }
+    return { success: false, error: "Agent ID not resolved" };
   }
 
   try {
@@ -294,7 +338,7 @@ export async function submitReputationFeedback(
       abi: REPUTATION_ABI,
       functionName: "giveFeedback",
       args: [
-        BigInt(_agentId!),
+        BigInt(_agentId),
         BigInt(value),
         2,
         tag1Bytes,
@@ -324,6 +368,30 @@ export async function submitReputationFeedback(
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("[ERC-8004] Reputation feedback failed:", msg);
     return { success: false, error: `Reputation feedback failed: ${msg}` };
+  }
+}
+
+async function flushPendingReceipts(): Promise<void> {
+  if (_agentId === null || _pendingReceipts.length === 0) return;
+  const batch = _pendingReceipts.splice(0);
+  for (const r of batch) {
+    const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost";
+    const fileURI = r.txHash
+      ? `https://basescan.org/tx/${r.txHash}`
+      : `https://${domain}/agent_log.json`;
+    const refHash = r.txHash || `${r.actionType}-${Date.now()}`;
+    try {
+      await submitReputationFeedback(
+        100,
+        r.actionType,
+        "completed",
+        `https://${domain}/agent_log.json`,
+        fileURI,
+        refHash
+      );
+    } catch (err) {
+      console.error("[ERC-8004] Failed to flush pending receipt:", err);
+    }
   }
 }
 
@@ -362,6 +430,8 @@ export async function recordActionReceipt(
     } catch (err) {
       console.error("[ERC-8004] Failed to submit reputation receipt:", err);
     }
+  } else {
+    _pendingReceipts.push({ actionType, description, txHash, amount, token, counterparty });
   }
 }
 
@@ -372,6 +442,14 @@ export function buildAgentJson(domain: string) {
     name: "Venice AI Legal Analysis Agent",
     description: "Autonomous legal document analysis agent with on-chain payment processing, USDC treasury management, and Uniswap swap delegation on Base mainnet.",
     image: `https://${domain}/logo.png`,
+    capabilities: [
+      "legal-document-analysis",
+      "usdc-payment-processing",
+      "uniswap-autonomous-swaps",
+      "eip712-delegation",
+      "telegram-communication",
+      "locus-treasury-management",
+    ],
     services: [
       {
         type: "web",
@@ -385,21 +463,11 @@ export function buildAgentJson(domain: string) {
       },
     ],
     agentWallet: walletAddress,
-    metadata: {
-      capabilities: [
-        "legal-document-analysis",
-        "usdc-payment-processing",
-        "uniswap-autonomous-swaps",
-        "eip712-delegation",
-        "telegram-communication",
-        "locus-treasury-management",
-      ],
-      chain: "base",
-      chainId: 8453,
-      registryAddress: IDENTITY_REGISTRY,
-      reputationRegistryAddress: REPUTATION_REGISTRY,
-      agentId: _agentId,
-    },
+    chain: "base",
+    chainId: 8453,
+    registryAddress: IDENTITY_REGISTRY,
+    reputationRegistryAddress: REPUTATION_REGISTRY,
+    agentId: _agentId,
   };
 }
 
@@ -407,6 +475,9 @@ export function getIdentityStatus(): AgentIdentity {
   if (_lastCheckResult) {
     if (_agentId !== null) {
       _lastCheckResult.agentId = _agentId;
+    }
+    if (_registrationTxHash) {
+      _lastCheckResult.registrationTxHash = _registrationTxHash;
     }
     return _lastCheckResult;
   }
@@ -420,62 +491,45 @@ export function getIdentityStatus(): AgentIdentity {
   };
 }
 
-async function deepScanForAgentId(): Promise<void> {
+async function resolveAgentIdByOwnerProbe(): Promise<void> {
   if (_agentId !== null) return;
-  const walletAddress = getAgentWallet();
+  const walletAddress = getAgentWallet().toLowerCase();
   const publicClient = createPublicClient({ chain: base, transport });
-  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
-  try {
-    const currentBlock = await publicClient.getBlockNumber();
-    const CHUNK = 9000n;
-    let toBlock = currentBlock;
-
-    for (let i = 0; i < 50 && toBlock > 0n; i++) {
-      const fromBlock = toBlock > CHUNK ? toBlock - CHUNK : 0n;
-      try {
-        const logs = await publicClient.getLogs({
+  console.log("[ERC-8004] Probing ownerOf for token IDs 0..200...");
+  for (let tokenId = 0; tokenId < 200; tokenId++) {
+    try {
+      const owner = await rpcWithTimeout(
+        publicClient.readContract({
           address: IDENTITY_REGISTRY,
-          event: {
-            type: "event",
-            name: "Transfer",
-            inputs: [
-              { name: "from", type: "address", indexed: true },
-              { name: "to", type: "address", indexed: true },
-              { name: "tokenId", type: "uint256", indexed: true },
-            ],
-          },
-          args: {
-            from: ZERO_ADDRESS,
-            to: walletAddress as `0x${string}`,
-          },
-          fromBlock,
-          toBlock,
-        });
+          abi: IDENTITY_ABI,
+          functionName: "ownerOf",
+          args: [BigInt(tokenId)],
+        }),
+        5000
+      ) as string;
 
-        if (logs.length > 0) {
-          const tokenId = logs[0].args.tokenId;
-          if (tokenId !== undefined) {
-            _agentId = Number(tokenId);
-            console.log(`[ERC-8004] Found agent ID via deep scan: ${_agentId}`);
-            store.addActivity("system", `ERC-8004 Agent ID resolved: ${_agentId}`);
-            return;
-          }
-        }
-      } catch {
-        // skip chunk
+      if (owner.toLowerCase() === walletAddress) {
+        _agentId = tokenId;
+        console.log(`[ERC-8004] Resolved agent ID via ownerOf probe: ${_agentId}`);
+        store.addActivity("system", `ERC-8004 Agent ID resolved: ${_agentId}`);
+        persistState();
+        await flushPendingReceipts();
+        return;
       }
-      toBlock = fromBlock - 1n;
-      await new Promise(r => setTimeout(r, 500));
+    } catch {
+      // token doesn't exist or RPC error
     }
-    console.log("[ERC-8004] Deep scan: agent ID not found in scanned range");
-  } catch (err) {
-    console.error("[ERC-8004] Deep scan failed:", err);
+
+    await new Promise(r => setTimeout(r, 1000));
   }
+  console.log("[ERC-8004] ownerOf probe: agent ID not found in 0..199");
 }
 
 export async function initERC8004(): Promise<void> {
   console.log("[ERC-8004] Initializing agent identity...");
+
+  loadPersistedState();
 
   const identity = await checkRegistration();
   if (identity.registered) {
@@ -483,9 +537,9 @@ export async function initERC8004(): Promise<void> {
       console.log(`[ERC-8004] Agent registered with ID: ${identity.agentId}`);
       store.addActivity("system", `ERC-8004 identity verified — Agent ID: ${identity.agentId}`);
     } else {
-      console.log("[ERC-8004] Agent registered but ID unknown — starting background scan");
+      console.log("[ERC-8004] Agent registered but ID unknown — probing ownerOf...");
       store.addActivity("system", "ERC-8004 identity registered on-chain — resolving agent ID...");
-      deepScanForAgentId();
+      resolveAgentIdByOwnerProbe();
     }
   } else {
     console.log("[ERC-8004] Agent not registered — attempting auto-registration...");
