@@ -344,15 +344,20 @@ export async function recordActionReceipt(
     counterparty,
   });
 
-  if (_agentId !== null && txHash) {
+  if (_agentId !== null) {
+    const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost";
+    const fileURI = txHash
+      ? `https://basescan.org/tx/${txHash}`
+      : `https://${domain}/agent_log.json`;
+    const refHash = txHash || `${actionType}-${Date.now()}`;
     try {
       await submitReputationFeedback(
         100,
         actionType,
         "completed",
-        `https://${process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost"}/agent_log.json`,
-        `https://basescan.org/tx/${txHash}`,
-        txHash
+        `https://${domain}/agent_log.json`,
+        fileURI,
+        refHash
       );
     } catch (err) {
       console.error("[ERC-8004] Failed to submit reputation receipt:", err);
