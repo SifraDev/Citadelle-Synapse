@@ -375,15 +375,13 @@ export const GetAgentActionLogResponseItem = zod.object({
   amount: zod.string().optional(),
   token: zod.string().optional(),
   counterparty: zod.string().optional(),
-  decision: zod
-    .object({
-      trigger: zod.string(),
-      plan: zod.string(),
-      execution: zod.string(),
-      verification: zod.string(),
-      outcome: zod.string(),
-    })
-    .optional(),
+  decision: zod.object({
+    trigger: zod.string(),
+    plan: zod.string(),
+    execution: zod.string(),
+    verification: zod.string(),
+    outcome: zod.string(),
+  }),
 });
 export const GetAgentActionLogResponse = zod.array(
   GetAgentActionLogResponseItem,

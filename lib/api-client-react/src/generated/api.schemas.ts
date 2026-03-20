@@ -340,7 +340,7 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
-  decision?: DecisionRecord;
+  decision: DecisionRecord;
 }
 
 export type BudgetStatusCategories = {

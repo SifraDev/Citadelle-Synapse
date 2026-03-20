@@ -63,7 +63,7 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
-  decision?: DecisionRecord;
+  decision: DecisionRecord;
 }
 
 let _agentId: number | null = null;
@@ -125,7 +125,7 @@ export function getAgentLog(): AgentLogEntry[] {
   return [..._agentLog];
 }
 
-export function addAgentLogEntry(entry: Omit<AgentLogEntry, "timestamp"> & { decision?: DecisionRecord }): void {
+export function addAgentLogEntry(entry: Omit<AgentLogEntry, "timestamp">): void {
   _agentLog.push({
     ...entry,
     timestamp: new Date().toISOString(),
