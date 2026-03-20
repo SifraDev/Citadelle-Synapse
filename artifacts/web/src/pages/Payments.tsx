@@ -75,7 +75,7 @@ export default function Payments() {
 
   const locusData = walletInfo?.locus;
   const locusConnected = locusData?.connected === true;
-  const uniswapConfigured = (walletInfo as any)?.uniswapConfigured === true;
+  const uniswapConfigured = walletInfo?.uniswapConfigured === true;
 
   const connectWallet = useCallback(async () => {
     if (!window.ethereum) {
@@ -188,7 +188,7 @@ export default function Payments() {
 
     setDelegationLoading(true);
     try {
-      const eip712Info = (delegation as any)?.eip712;
+      const eip712Info = delegation?.eip712;
       if (!eip712Info) {
         alert("Could not load delegation type info from server.");
         return;
@@ -260,7 +260,7 @@ export default function Payments() {
   const confirmedTotal = payments?.reduce((acc, p) => p.status === "confirmed" ? acc + parseFloat(p.amount) : acc, 0) || 0;
   const confirmedCount = payments?.filter(p => p.status === "confirmed").length || 0;
   const pendingCount = pendingCharges.length;
-  const ethBalance = (walletInfo as any)?.ethBalance || "0";
+  const ethBalance = walletInfo?.ethBalance || "0";
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 max-w-6xl mx-auto">

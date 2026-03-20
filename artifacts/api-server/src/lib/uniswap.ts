@@ -21,8 +21,8 @@ const USDC_DECIMALS = 6;
 const UNISWAP_API_BASE = "https://trade-api.gateway.uniswap.org/v1";
 const BASE_CHAIN_ID = 8453;
 
-const COMMISSION_RATE = 0.10;
-const MIN_SWAP_THRESHOLD = 0.50;
+const COMMISSION_RATE = parseFloat(process.env.COMMISSION_RATE || "0.10");
+const MIN_SWAP_THRESHOLD = parseFloat(process.env.MIN_SWAP_THRESHOLD || "0.50");
 
 const ERC20_ABI = parseAbi([
   "function allowance(address owner, address spender) view returns (uint256)",
@@ -72,9 +72,26 @@ export function getSwapConfig() {
   };
 }
 
+interface UniswapQuoteResponse {
+  quote: {
+    input?: { amount: string; token: string };
+    output?: { amount: string; token: string };
+    methodParameters?: { calldata: string; value: string; to: string };
+  };
+  routing?: string;
+  permitData?: PermitData;
+}
+
+interface PermitData {
+  domain: Record<string, unknown>;
+  types: Record<string, Array<{ name: string; type: string }>>;
+  primaryType?: string;
+  values: Record<string, unknown>;
+}
+
 export async function getSwapQuote(usdcAmount: number): Promise<{
   success: boolean;
-  data?: any;
+  data?: UniswapQuoteResponse;
   error?: string;
 }> {
   const apiKey = getApiKey();
@@ -110,7 +127,7 @@ export async function getSwapQuote(usdcAmount: number): Promise<{
       return { success: false, error: `Quote API error: ${response.status} — ${errBody.slice(0, 200)}` };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as UniswapQuoteResponse;
     return { success: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -166,7 +183,7 @@ export async function ensurePermit2Approval(): Promise<{
   }
 }
 
-export async function executeSwap(quoteResponse: any): Promise<{
+export async function executeSwap(quoteResponse: UniswapQuoteResponse): Promise<{
   success: boolean;
   txHash?: string;
   error?: string;
@@ -224,7 +241,7 @@ export async function executeSwap(quoteResponse: any): Promise<{
   }
 }
 
-async function signPermitData(permitData: any, account: ReturnType<typeof privateKeyToAccount>): Promise<string> {
+async function signPermitData(permitData: PermitData, account: ReturnType<typeof privateKeyToAccount>): Promise<string> {
   const walletClient = createWalletClient({
     account,
     chain: base,
@@ -307,7 +324,7 @@ export async function performAutonomousSwap(usdcAmount: number): Promise<SwapRes
     return { success: false, error: `Wallet mismatch: PRIVATE_KEY derives ${account.address} but AGENT_WALLET is ${agentWallet}` };
   }
 
-  const delegationCheck = verifyDelegation(usdcAmount);
+  const delegationCheck = await verifyDelegation(usdcAmount);
   if (!delegationCheck.allowed) {
     console.log(`[Uniswap] Delegation denied: ${delegationCheck.reason}`);
     store.addActivity("system", `Swap blocked — ${delegationCheck.reason}`, {

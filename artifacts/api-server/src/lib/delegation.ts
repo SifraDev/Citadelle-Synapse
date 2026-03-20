@@ -3,6 +3,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 
 const UNISWAP_UNIVERSAL_ROUTER_BASE = "0x6fF5693b99212Da76ad316178A184AB56D299b43" as const;
+const OWNER_ADDRESS = process.env.OWNER_ADDRESS?.toLowerCase() || null;
 
 const DOMAIN = {
   name: "Venice AI Legal Platform",
@@ -88,6 +89,10 @@ export async function storeDelegation(
       return { success: false, error: "Agent wallet not configured (PRIVATE_KEY missing)" };
     }
 
+    if (OWNER_ADDRESS && delegator.toLowerCase() !== OWNER_ADDRESS) {
+      return { success: false, error: `Delegator must be the configured owner (${OWNER_ADDRESS}), got ${delegator}` };
+    }
+
     if (delegate.toLowerCase() !== agentAddress) {
       return { success: false, error: `Delegate must be the agent wallet (${agentAddress}), got ${delegate}` };
     }
@@ -135,10 +140,10 @@ export async function storeDelegation(
   }
 }
 
-export function verifyDelegation(proposedAmountUsdc: number): {
+export async function verifyDelegation(proposedAmountUsdc: number): Promise<{
   allowed: boolean;
   reason?: string;
-} {
+}> {
   if (!_currentDelegation) {
     return { allowed: false, reason: "No active delegation — owner must sign in dashboard" };
   }
@@ -155,6 +160,33 @@ export function verifyDelegation(proposedAmountUsdc: number): {
 
   if (_currentDelegation.allowedContract.toLowerCase() !== UNISWAP_UNIVERSAL_ROUTER_BASE.toLowerCase()) {
     return { allowed: false, reason: "Delegation allowedContract does not match Uniswap Universal Router" };
+  }
+
+  if (OWNER_ADDRESS && _currentDelegation.delegator.toLowerCase() !== OWNER_ADDRESS) {
+    return { allowed: false, reason: "Delegation delegator does not match configured OWNER_ADDRESS" };
+  }
+
+  try {
+    const message = {
+      delegate: _currentDelegation.delegate as `0x${string}`,
+      allowedContract: _currentDelegation.allowedContract as `0x${string}`,
+      dailyLimitUsdc: BigInt(Math.round(_currentDelegation.dailyLimitUsdc * 1e6)),
+      expiresAt: BigInt(_currentDelegation.expiresAt),
+    };
+    const valid = await verifyTypedData({
+      address: _currentDelegation.delegator as `0x${string}`,
+      domain: DOMAIN,
+      types: DELEGATION_TYPES,
+      primaryType: "Delegation",
+      message,
+      signature: _currentDelegation.signature as `0x${string}`,
+    });
+    if (!valid) {
+      _currentDelegation = null;
+      return { allowed: false, reason: "Stored delegation signature no longer valid — revoked" };
+    }
+  } catch {
+    return { allowed: false, reason: "Delegation signature re-verification failed" };
   }
 
   const dailyUsed = getDailyUsed();

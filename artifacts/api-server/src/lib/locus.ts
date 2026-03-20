@@ -2,6 +2,7 @@ import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { getAgentWallet } from "./crypto.js";
 import { calculateCommission, performAutonomousSwap, isUniswapConfigured, getSwapConfig } from "./uniswap.js";
+import { verifyDelegation } from "./delegation.js";
 
 const LOCUS_API_BASE = "https://beta-api.paywithlocus.com/api";
 
@@ -241,16 +242,25 @@ async function pollLocusTransactions(): Promise<void> {
         if (commission >= minSwapThreshold) {
           console.log(`[Locus] Commission: ${commission} USDC (${(getSwapConfig().commissionRate * 100).toFixed(0)}% of ${amount})`);
           try {
-            const agentWallet = getAgentWallet();
-            const sendResult = await locusSendPayment(agentWallet, commission, `Auto-commission ${commission} USDC from payment ${tx.tx_hash?.slice(0, 12)}`);
-            if ("error" in sendResult) {
-              console.error(`[Locus] Commission transfer failed: ${sendResult.error}`);
-              store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: commission });
+            const delegationCheck = await verifyDelegation(commission);
+            if (!delegationCheck.allowed) {
+              console.log(`[Locus] Delegation denied before transfer: ${delegationCheck.reason}`);
+              store.addActivity("system", `Commission swap skipped — ${delegationCheck.reason}`, { amount: commission });
+              await sendMessage(
+                `🔒 <b>Commission Swap Skipped</b>\n\nAmount: ${commission} USDC\nReason: ${delegationCheck.reason}\n\nSign a delegation in the dashboard to enable autonomous swaps.`
+              );
             } else {
-              console.log(`[Locus] Commission ${commission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
-              const swapResult = await performAutonomousSwap(commission);
-              if (!swapResult.success && !swapResult.delegationDenied) {
-                console.error(`[Uniswap] Autonomous swap failed: ${swapResult.error}`);
+              const agentWallet = getAgentWallet();
+              const sendResult = await locusSendPayment(agentWallet, commission, `Auto-commission ${commission} USDC from payment ${tx.tx_hash?.slice(0, 12)}`);
+              if ("error" in sendResult) {
+                console.error(`[Locus] Commission transfer failed: ${sendResult.error}`);
+                store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: commission });
+              } else {
+                console.log(`[Locus] Commission ${commission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
+                const swapResult = await performAutonomousSwap(commission);
+                if (!swapResult.success && !swapResult.delegationDenied) {
+                  console.error(`[Uniswap] Autonomous swap failed: ${swapResult.error}`);
+                }
               }
             }
           } catch (err) {
