@@ -102,6 +102,8 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       documentTexts,
     });
 
+    const totalInputChars = documentTexts.reduce((s, t) => s + t.length, 0);
+
     for await (const chunk of generator) {
       fullResponse += chunk;
       sendSSE("chunk", { content: chunk });
@@ -117,7 +119,6 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       `📋 <b>Document Analysis Complete</b>\n\nMode: ${mode}\nDocuments: ${files.length}\n\n${truncatedSummary}${fullResponse.length > 500 ? "..." : ""}`
     );
 
-    const totalInputChars = documentTexts.reduce((s, t) => s + t.length, 0);
     const estimatedPromptTokens = Math.ceil(totalInputChars / 4);
     const estimatedCompletionTokens = Math.ceil(fullResponse.length / 4);
     const diemCost = `${getVeniceDiemCost(estimatedPromptTokens + estimatedCompletionTokens)} DIEM`;
