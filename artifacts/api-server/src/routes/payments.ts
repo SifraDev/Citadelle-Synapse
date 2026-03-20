@@ -19,6 +19,12 @@ import {
   performAutonomousSwap,
   getSwapConfig,
 } from "../lib/uniswap.js";
+import {
+  getIdentityStatus,
+  checkRegistration,
+  registerAgent,
+  getAgentLog,
+} from "../lib/erc8004.js";
 
 const router: IRouter = Router();
 
@@ -346,6 +352,31 @@ router.post("/payments/swap", async (req, res): Promise<void> => {
   }
 
   res.json(result);
+});
+
+router.get("/payments/identity", async (_req, res): Promise<void> => {
+  const identity = await checkRegistration();
+  res.json(identity);
+});
+
+router.post("/payments/identity/register", async (_req, res): Promise<void> => {
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  const authHeader = _req.headers.authorization;
+  if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
+    res.status(403).json({ error: "Unauthorized: admin token required" });
+    return;
+  }
+
+  const result = await registerAgent();
+  if (!result.success && !result.agentId) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+router.get("/payments/agent-log", async (_req, res): Promise<void> => {
+  res.json(getAgentLog());
 });
 
 export default router;

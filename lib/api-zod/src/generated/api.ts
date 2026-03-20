@@ -333,6 +333,51 @@ export const SubmitDelegationResponse = zod.object({
 });
 
 /**
+ * @summary Get ERC-8004 agent identity status
+ */
+export const GetAgentIdentityResponse = zod.object({
+  registered: zod.boolean(),
+  agentId: zod.number().optional(),
+  tokenURI: zod.string().optional(),
+  registryAddress: zod.string(),
+  reputationRegistryAddress: zod.string(),
+  walletAddress: zod.string(),
+  registrationTxHash: zod.string().optional(),
+});
+
+/**
+ * @summary Register agent on ERC-8004 IdentityRegistry
+ */
+export const RegisterAgentIdentityResponse = zod.object({
+  success: zod.boolean(),
+  agentId: zod.number().optional(),
+  txHash: zod.string().optional(),
+  error: zod.string().optional(),
+});
+
+/**
+ * @summary Get agent action log (ERC-8004 receipts)
+ */
+export const GetAgentActionLogResponseItem = zod.object({
+  timestamp: zod.date(),
+  type: zod.enum([
+    "swap",
+    "payment",
+    "delegation",
+    "registration",
+    "reputation",
+  ]),
+  description: zod.string(),
+  txHash: zod.string().optional(),
+  amount: zod.string().optional(),
+  token: zod.string().optional(),
+  counterparty: zod.string().optional(),
+});
+export const GetAgentActionLogResponse = zod.array(
+  GetAgentActionLogResponseItem,
+);
+
+/**
  * @summary Manually trigger a USDC to ETH swap via Uniswap
  */
 export const ExecuteSwapBody = zod.object({

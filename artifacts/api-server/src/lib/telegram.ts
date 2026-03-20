@@ -4,6 +4,7 @@ import { getAgentWallet, getEthBalance } from "./crypto.js";
 import { isLocusConfigured, getLocusBalance, getLocusWalletAddress } from "./locus.js";
 import { isUniswapConfigured, performAutonomousSwap } from "./uniswap.js";
 import { getDelegationStatus } from "./delegation.js";
+import { getIdentityStatus, checkRegistration, registerAgent } from "./erc8004.js";
 
 function getPaymentUrl(chargeId: string): string {
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
@@ -156,6 +157,35 @@ export function initTelegramBot(): void {
           }
           bot?.sendMessage(Number(chatId), gasMsg, { parse_mode: "HTML" });
           logOutgoing(chatId, gasMsg);
+          return;
+        }
+
+        if (text === "/identity" || text.startsWith("/identity ")) {
+          const subCmd = text.substring(10).trim();
+          if (subCmd === "register") {
+            bot?.sendMessage(Number(chatId), "⏳ Registering agent identity on Base mainnet...");
+            const regResult = await registerAgent();
+            if (regResult.success) {
+              const idMsg = `🆔 <b>Agent Registered</b>\n\nAgent ID: ${regResult.agentId}\nTx: <a href="https://basescan.org/tx/${regResult.txHash}">${regResult.txHash?.slice(0, 16)}...</a>\nRegistry: <code>0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</code>`;
+              bot?.sendMessage(Number(chatId), idMsg, { parse_mode: "HTML" });
+            } else {
+              bot?.sendMessage(Number(chatId), `❌ Registration failed: ${regResult.error}`);
+            }
+          } else {
+            const identity = await checkRegistration();
+            let idMsg = `🆔 <b>ERC-8004 Agent Identity</b>\n\n`;
+            idMsg += `Status: ${identity.registered ? "✅ Registered" : "❌ Not registered"}\n`;
+            if (identity.agentId !== undefined) {
+              idMsg += `Agent ID: ${identity.agentId}\n`;
+            }
+            idMsg += `Wallet: <code>${identity.walletAddress}</code>\n`;
+            idMsg += `Registry: <a href="https://basescan.org/address/${identity.registryAddress}">${identity.registryAddress.slice(0, 16)}...</a>\n`;
+            idMsg += `Reputation: <a href="https://basescan.org/address/${identity.reputationRegistryAddress}">${identity.reputationRegistryAddress.slice(0, 16)}...</a>`;
+            if (!identity.registered) {
+              idMsg += `\n\nUse /identity register to register on-chain.`;
+            }
+            bot?.sendMessage(Number(chatId), idMsg, { parse_mode: "HTML" });
+          }
           return;
         }
 

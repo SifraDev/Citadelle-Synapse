@@ -7,6 +7,7 @@ import {
   useConfirmPayment,
   useGetDelegation,
   useSubmitDelegation,
+  useGetAgentIdentity,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { truncateAddress } from "@/lib/utils";
@@ -28,6 +29,7 @@ import {
   Fuel,
   KeyRound,
   Zap,
+  Fingerprint,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -58,6 +60,7 @@ export default function Payments() {
   const { data: walletInfo, isLoading: loadingWallet, refetch: refetchWallet } = useGetWalletInfo({ query: { refetchInterval: 30000 } });
   const { data: charges, refetch: refetchCharges } = useListCharges({ query: { refetchInterval: 10000 } });
   const { data: delegation, refetch: refetchDelegation } = useGetDelegation({ query: { refetchInterval: 15000 } });
+  const { data: identity } = useGetAgentIdentity({ query: { refetchInterval: 30000 } });
   const { mutateAsync: createCharge, isPending: creatingCharge } = useCreateCharge();
   const { mutateAsync: confirmPayment } = useConfirmPayment();
   const { mutateAsync: submitDelegation } = useSubmitDelegation();
@@ -273,6 +276,12 @@ export default function Payments() {
           <p className="text-muted-foreground mt-1">Real USDC payments on Base network via MetaMask & Locus.</p>
         </div>
         <div className="flex items-center gap-3">
+          {identity?.registered && (
+            <div className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 px-2.5 py-1 rounded-lg text-xs font-medium">
+              <Fingerprint className="w-3 h-3" />
+              ERC-8004
+            </div>
+          )}
           {uniswapConfigured && (
             <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2.5 py-1 rounded-lg text-xs font-medium">
               <Zap className="w-3 h-3" />
@@ -461,6 +470,71 @@ export default function Payments() {
                 {delegationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
                 {connectedAddress ? "Sign Delegation via MetaMask" : "Connect Wallet First"}
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {identity && (
+        <div className="bg-card rounded-xl border border-orange-500/20 p-5 shadow-lg">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Fingerprint className="w-5 h-5 text-orange-400" />
+            ERC-8004 Agent Identity
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground text-xs mb-0.5">Status</p>
+              <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full ${identity.registered ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+                <span className={`font-medium text-sm ${identity.registered ? "text-emerald-500" : "text-muted-foreground"}`}>
+                  {identity.registered ? "Registered" : "Unregistered"}
+                </span>
+              </div>
+            </div>
+            {identity.agentId !== undefined && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-0.5">Agent ID</p>
+                <p className="text-foreground font-semibold text-lg">#{identity.agentId}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-muted-foreground text-xs mb-0.5">Identity Registry</p>
+              <a
+                href={`https://basescan.org/address/${identity.registryAddress}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-orange-400 hover:underline font-mono text-xs"
+              >
+                {truncateAddress(identity.registryAddress)}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs mb-0.5">Reputation Registry</p>
+              <a
+                href={`https://basescan.org/address/${identity.reputationRegistryAddress}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-orange-400 hover:underline font-mono text-xs"
+              >
+                {truncateAddress(identity.reputationRegistryAddress)}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+          {identity.registrationTxHash && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Registration Tx:{" "}
+                <a
+                  href={`https://basescan.org/tx/${identity.registrationTxHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-orange-400 hover:underline font-mono"
+                >
+                  {truncateAddress(identity.registrationTxHash)}
+                </a>
+              </p>
             </div>
           )}
         </div>

@@ -9,6 +9,9 @@
 export * from "./activityEntry";
 export * from "./activityEntryMetadata";
 export * from "./activityEntryType";
+export * from "./agentIdentity";
+export * from "./agentLogEntry";
+export * from "./agentLogEntryType";
 export * from "./analyzeDocumentsBody";
 export * from "./analyzeDocumentsBodyMode";
 export * from "./chargeDetail";
@@ -35,6 +38,7 @@ export * from "./locusStatus";
 export * from "./paymentEntry";
 export * from "./paymentEntryPaymentMethod";
 export * from "./paymentEntryStatus";
+export * from "./registrationResult";
 export * from "./scheduledTask";
 export * from "./scheduledTaskActionType";
 export * from "./scheduledTaskMode";

@@ -13,6 +13,7 @@ import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { verifyDelegation, recordDailyUsage } from "./delegation.js";
 import { getAgentWallet } from "./crypto.js";
+import { addAgentLogEntry } from "./erc8004.js";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -408,6 +409,15 @@ export async function performAutonomousSwap(usdcAmount: number): Promise<SwapRes
   await sendMessage(
     `⚡ <b>USDC→ETH Swap Executed</b>\n\nIn: ${usdcAmount} USDC\nOut: ~${parseFloat(outputAmount).toFixed(6)} ETH\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>\nVia: Uniswap on Base`
   );
+
+  addAgentLogEntry({
+    type: "swap",
+    description: `USDC→ETH swap: ${usdcAmount} USDC → ${outputAmount} ETH via Uniswap`,
+    txHash: swapResult.txHash,
+    amount: usdcAmount.toString(),
+    token: "USDC→ETH",
+    counterparty: "Uniswap Universal Router",
+  });
 
   return {
     success: true,

@@ -420,6 +420,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /payments/identity:
+    get:
+      operationId: getAgentIdentity
+      tags: [payments]
+      summary: Get ERC-8004 agent identity status
+      responses:
+        "200":
+          description: Agent identity information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentIdentity"
+  /payments/identity/register:
+    post:
+      operationId: registerAgentIdentity
+      tags: [payments]
+      summary: Register agent on ERC-8004 IdentityRegistry
+      responses:
+        "200":
+          description: Registration result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResult"
+        "400":
+          description: Registration failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /payments/agent-log:
+    get:
+      operationId: getAgentActionLog
+      tags: [payments]
+      summary: Get agent action log (ERC-8004 receipts)
+      responses:
+        "200":
+          description: Agent action log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentLogEntry"
   /payments/swap:
     post:
       operationId: executeSwap
@@ -857,6 +907,64 @@ components:
         - dailyLimitUsdc
         - expiresAt
         - signature
+    AgentIdentity:
+      type: object
+      properties:
+        registered:
+          type: boolean
+        agentId:
+          type: integer
+        tokenURI:
+          type: string
+        registryAddress:
+          type: string
+        reputationRegistryAddress:
+          type: string
+        walletAddress:
+          type: string
+        registrationTxHash:
+          type: string
+      required:
+        - registered
+        - registryAddress
+        - reputationRegistryAddress
+        - walletAddress
+    RegistrationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        agentId:
+          type: integer
+        txHash:
+          type: string
+        error:
+          type: string
+      required:
+        - success
+    AgentLogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [swap, payment, delegation, registration, reputation]
+        description:
+          type: string
+        txHash:
+          type: string
+        amount:
+          type: string
+        token:
+          type: string
+        counterparty:
+          type: string
+      required:
+        - timestamp
+        - type
+        - description
     SwapInput:
       type: object
       properties:

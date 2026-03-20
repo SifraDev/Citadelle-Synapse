@@ -3,6 +3,7 @@ import { sendMessage } from "./telegram.js";
 import { getAgentWallet } from "./crypto.js";
 import { calculateCommission, performAutonomousSwap, isUniswapConfigured, getSwapConfig } from "./uniswap.js";
 import { verifyDelegation } from "./delegation.js";
+import { addAgentLogEntry } from "./erc8004.js";
 
 const LOCUS_API_BASE = "https://beta-api.paywithlocus.com/api";
 
@@ -234,6 +235,15 @@ async function pollLocusTransactions(): Promise<void> {
         from: tx.from_address,
         amount,
         via: "locus",
+      });
+
+      addAgentLogEntry({
+        type: "payment",
+        description: `Received ${amount} USDC via Locus from ${tx.from_address}`,
+        txHash: tx.tx_hash,
+        amount,
+        token: "USDC",
+        counterparty: tx.from_address,
       });
 
       if (isUniswapConfigured()) {

@@ -293,6 +293,44 @@ export interface SubmitDelegationInput {
   signature: string;
 }
 
+export interface AgentIdentity {
+  registered: boolean;
+  agentId?: number;
+  tokenURI?: string;
+  registryAddress: string;
+  reputationRegistryAddress: string;
+  walletAddress: string;
+  registrationTxHash?: string;
+}
+
+export interface RegistrationResult {
+  success: boolean;
+  agentId?: number;
+  txHash?: string;
+  error?: string;
+}
+
+export type AgentLogEntryType =
+  (typeof AgentLogEntryType)[keyof typeof AgentLogEntryType];
+
+export const AgentLogEntryType = {
+  swap: "swap",
+  payment: "payment",
+  delegation: "delegation",
+  registration: "registration",
+  reputation: "reputation",
+} as const;
+
+export interface AgentLogEntry {
+  timestamp: string;
+  type: AgentLogEntryType;
+  description: string;
+  txHash?: string;
+  amount?: string;
+  token?: string;
+  counterparty?: string;
+}
+
 export interface SwapInput {
   /** USDC amount to swap to ETH */
   amount: number;

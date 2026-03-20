@@ -18,6 +18,8 @@ import type {
 
 import type {
   ActivityEntry,
+  AgentIdentity,
+  AgentLogEntry,
   AnalyzeDocumentsBody,
   ChargeDetail,
   ChargeRequest,
@@ -32,6 +34,7 @@ import type {
   GetPaymentsParams,
   HealthStatus,
   PaymentEntry,
+  RegistrationResult,
   ScheduledTask,
   SubmitDelegationInput,
   SuccessResponse,
@@ -1620,6 +1623,237 @@ export const useSubmitDelegation = <
 > => {
   return useMutation(getSubmitDelegationMutationOptions(options));
 };
+
+/**
+ * @summary Get ERC-8004 agent identity status
+ */
+export const getGetAgentIdentityUrl = () => {
+  return `/api/payments/identity`;
+};
+
+export const getAgentIdentity = async (
+  options?: RequestInit,
+): Promise<AgentIdentity> => {
+  return customFetch<AgentIdentity>(getGetAgentIdentityUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentIdentityQueryKey = () => {
+  return [`/api/payments/identity`] as const;
+};
+
+export const getGetAgentIdentityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentIdentity>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentIdentity>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentIdentityQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentIdentity>>
+  > = ({ signal }) => getAgentIdentity({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentIdentity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentIdentityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentIdentity>>
+>;
+export type GetAgentIdentityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get ERC-8004 agent identity status
+ */
+
+export function useGetAgentIdentity<
+  TData = Awaited<ReturnType<typeof getAgentIdentity>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentIdentity>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentIdentityQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register agent on ERC-8004 IdentityRegistry
+ */
+export const getRegisterAgentIdentityUrl = () => {
+  return `/api/payments/identity/register`;
+};
+
+export const registerAgentIdentity = async (
+  options?: RequestInit,
+): Promise<RegistrationResult> => {
+  return customFetch<RegistrationResult>(getRegisterAgentIdentityUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRegisterAgentIdentityMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerAgentIdentity>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerAgentIdentity>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["registerAgentIdentity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerAgentIdentity>>,
+    void
+  > = () => {
+    return registerAgentIdentity(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterAgentIdentityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerAgentIdentity>>
+>;
+
+export type RegisterAgentIdentityMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Register agent on ERC-8004 IdentityRegistry
+ */
+export const useRegisterAgentIdentity = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerAgentIdentity>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerAgentIdentity>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRegisterAgentIdentityMutationOptions(options));
+};
+
+/**
+ * @summary Get agent action log (ERC-8004 receipts)
+ */
+export const getGetAgentActionLogUrl = () => {
+  return `/api/payments/agent-log`;
+};
+
+export const getAgentActionLog = async (
+  options?: RequestInit,
+): Promise<AgentLogEntry[]> => {
+  return customFetch<AgentLogEntry[]>(getGetAgentActionLogUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentActionLogQueryKey = () => {
+  return [`/api/payments/agent-log`] as const;
+};
+
+export const getGetAgentActionLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentActionLog>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentActionLog>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentActionLogQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentActionLog>>
+  > = ({ signal }) => getAgentActionLog({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentActionLog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentActionLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentActionLog>>
+>;
+export type GetAgentActionLogQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get agent action log (ERC-8004 receipts)
+ */
+
+export function useGetAgentActionLog<
+  TData = Awaited<ReturnType<typeof getAgentActionLog>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentActionLog>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentActionLogQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Manually trigger a USDC to ETH swap via Uniswap
