@@ -241,7 +241,7 @@ export async function registerAgent(): Promise<{
     return { success: true, agentId: existing.agentId, error: "Already registered" };
   }
 
-  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "venice-legal.replit.app";
+  const domain = process.env.REPLIT_DEV_DOMAIN || (process.env.REPLIT_DOMAINS?.split(",")[0]) || "venice-legal.replit.app";
   const tokenURI = `https://${domain}/.well-known/agent.json`;
 
   try {
@@ -375,7 +375,7 @@ async function flushPendingReceipts(): Promise<void> {
   if (_agentId === null || _pendingReceipts.length === 0) return;
   const batch = _pendingReceipts.splice(0);
   for (const r of batch) {
-    const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost";
+    const domain = process.env.REPLIT_DEV_DOMAIN || (process.env.REPLIT_DOMAINS?.split(",")[0]) || "localhost";
     const fileURI = r.txHash
       ? `https://basescan.org/tx/${r.txHash}`
       : `https://${domain}/agent_log.json`;
@@ -413,7 +413,7 @@ export async function recordActionReceipt(
   });
 
   if (_agentId !== null) {
-    const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost";
+    const domain = process.env.REPLIT_DEV_DOMAIN || (process.env.REPLIT_DOMAINS?.split(",")[0]) || "localhost";
     const fileURI = txHash
       ? `https://basescan.org/tx/${txHash}`
       : `https://${domain}/agent_log.json`;
