@@ -424,9 +424,13 @@ export async function performAutonomousSwap(usdcAmount: number, outputToken: str
     `⚡ <b>USDC→${outputLabel} Swap Executed</b>\n\nIn: ${usdcAmount} USDC\nOut: ~${parseFloat(outputAmount).toFixed(6)} ${outputLabel}\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>\nVia: Uniswap on Base`
   );
 
+  const receiptDesc = isVvv
+    ? `Agent acquired compute equity: ${usdcAmount} USDC → ${outputAmount} VVV (Venice governance token) via Uniswap`
+    : `USDC→ETH swap: ${usdcAmount} USDC → ${outputAmount} ETH via Uniswap`;
+
   recordActionReceipt(
     "swap",
-    `USDC→${outputLabel} swap: ${usdcAmount} USDC → ${outputAmount} ${outputLabel} via Uniswap`,
+    receiptDesc,
     swapResult.txHash,
     usdcAmount.toString(),
     `USDC→${outputLabel}`,

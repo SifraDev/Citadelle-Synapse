@@ -281,16 +281,24 @@ async function pollLocusTransactions(): Promise<void> {
                 });
 
                 if (ethCommission >= minSwapThreshold) {
-                  const ethSwapResult = await performAutonomousSwap(ethCommission);
-                  if (!ethSwapResult.success && !ethSwapResult.delegationDenied) {
-                    console.error(`[Uniswap] ETH swap failed: ${ethSwapResult.error}`);
+                  try {
+                    const ethSwapResult = await performAutonomousSwap(ethCommission);
+                    if (!ethSwapResult.success && !ethSwapResult.delegationDenied) {
+                      console.error(`[Uniswap] ETH swap failed: ${ethSwapResult.error}`);
+                    }
+                  } catch (ethErr) {
+                    console.error("[Locus] ETH commission swap error:", ethErr);
                   }
                 }
 
                 if (vvvCommission >= minSwapThreshold) {
-                  const vvvSwapResult = await performAutonomousSwap(vvvCommission, getVvvAddress());
-                  if (!vvvSwapResult.success && !vvvSwapResult.delegationDenied) {
-                    console.error(`[Uniswap] VVV swap failed: ${vvvSwapResult.error}`);
+                  try {
+                    const vvvSwapResult = await performAutonomousSwap(vvvCommission, getVvvAddress());
+                    if (!vvvSwapResult.success && !vvvSwapResult.delegationDenied) {
+                      console.error(`[Uniswap] VVV swap failed: ${vvvSwapResult.error}`);
+                    }
+                  } catch (vvvErr) {
+                    console.error("[Locus] VVV commission swap error:", vvvErr);
                   }
                 }
               }

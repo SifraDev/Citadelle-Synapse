@@ -334,7 +334,7 @@ export default function Payments() {
             )}
           </div>
         )}
-        {uniswapConfigured && (
+        {(uniswapConfigured || parseFloat(vvvBalance) > 0) && (
           <div className="bg-card rounded-xl border border-purple-500/20 p-5 shadow-lg">
             <p className="text-sm text-purple-400 font-medium mb-1 flex items-center gap-1.5">
               <Gem className="w-3.5 h-3.5" />
