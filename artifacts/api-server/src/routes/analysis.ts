@@ -6,7 +6,7 @@ import { store } from "../lib/store.js";
 import { sendMessage } from "../lib/telegram.js";
 import { x402Middleware, getX402PricingInfo, type X402PaymentContext } from "../lib/x402.js";
 import { recordActionReceipt } from "../lib/erc8004.js";
-import { getVeniceDiemCost } from "../lib/budget.js";
+import { getVeniceDiemCost, estimateTokensFromText } from "../lib/budget.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -117,7 +117,10 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       `📋 <b>Document Analysis Complete</b>\n\nMode: ${mode}\nDocuments: ${files.length}\n\n${truncatedSummary}${fullResponse.length > 500 ? "..." : ""}`
     );
 
-    const diemCost = `${getVeniceDiemCost()} DIEM`;
+    const totalInputChars = documentTexts.reduce((s, t) => s + t.length, 0);
+    const estimatedPromptTokens = Math.ceil(totalInputChars / 4);
+    const estimatedCompletionTokens = Math.ceil(fullResponse.length / 4);
+    const diemCost = `${getVeniceDiemCost(estimatedPromptTokens + estimatedCompletionTokens)} DIEM`;
     if (x402Payment) {
       recordActionReceipt(
         "payment",

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { trackCall, canCall } from "./budget.js";
+import { trackCall, canCall, trackVeniceDiem, estimateTokensFromText } from "./budget.js";
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
 
@@ -49,6 +49,7 @@ export async function sanitizeAnalysis(analysisText: string): Promise<string> {
     throw new Error("Venice AI compute budget exhausted for today. Try again after daily reset.");
   }
   trackCall("venice");
+  const promptTokens = estimateTokensFromText(SANITIZE_PROMPT + analysisText);
   const ai = getClient();
   let result = "";
 
@@ -69,6 +70,9 @@ export async function sanitizeAnalysis(analysisText: string): Promise<string> {
     }
   }
 
+  const completionTokens = estimateTokensFromText(result);
+  trackVeniceDiem(promptTokens + completionTokens);
+
   return result;
 }
 
@@ -88,6 +92,8 @@ export async function* streamAnalysis(options: AnalysisOptions): AsyncGenerator<
     userContent = `QUERY: ${options.customQuery}\n\n${userContent}`;
   }
 
+  const promptTokens = estimateTokensFromText(systemPrompt + userContent);
+
   const stream = await ai.chat.completions.create({
     model: "deepseek-v3.2",
     messages: [
@@ -98,10 +104,15 @@ export async function* streamAnalysis(options: AnalysisOptions): AsyncGenerator<
     max_tokens: 4096,
   });
 
+  let totalOutput = 0;
   for await (const chunk of stream) {
     const content = chunk.choices[0]?.delta?.content;
     if (content) {
+      totalOutput += content.length;
       yield content;
     }
   }
+
+  const completionTokens = Math.ceil(totalOutput / 4);
+  trackVeniceDiem(promptTokens + completionTokens);
 }

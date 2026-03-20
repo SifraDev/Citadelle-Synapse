@@ -401,7 +401,6 @@ export const GetBudgetStatusResponse = zod.object({
       used: zod.number().optional(),
       limit: zod.number().optional(),
       percentUsed: zod.number().optional(),
-      estimatedCost: zod.number().optional(),
       diemCost: zod.number().optional(),
     }),
   ),

@@ -1040,8 +1040,6 @@ components:
                 type: integer
               percentUsed:
                 type: integer
-              estimatedCost:
-                type: number
               diemCost:
                 type: number
         overall:

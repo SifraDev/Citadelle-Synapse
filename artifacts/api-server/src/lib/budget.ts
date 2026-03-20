@@ -11,16 +11,9 @@ interface BudgetState {
   overallLimit: number;
   overallUsed: number;
   lastResetAt: string;
-  resetIntervalMs: number;
 }
 
-const DIEM_COST_PER_CALL: Record<BudgetCategory, number> = {
-  venice: 0.04,
-  rpc: 0.0001,
-  uniswap: 0.005,
-  locus: 0.002,
-  telegram: 0.0005,
-};
+const VENICE_DIEM_PER_1K_TOKENS = 0.002;
 
 const DEFAULT_LIMITS: Record<BudgetCategory, number> = {
   venice: 200,
@@ -51,6 +44,17 @@ function getDailyDiemBudget(): number {
   return DEFAULT_DAILY_DIEM_BUDGET;
 }
 
+function getNextMidnightUTC(): Date {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+  return next;
+}
+
+function getTodayMidnightUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+}
+
 const state: BudgetState = {
   categories: {
     venice: { used: 0, limit: getLimit("venice"), estimatedCost: 0 },
@@ -61,28 +65,37 @@ const state: BudgetState = {
   },
   overallLimit: getOverallLimit(),
   overallUsed: 0,
-  lastResetAt: new Date().toISOString(),
-  resetIntervalMs: 24 * 60 * 60 * 1000,
+  lastResetAt: getTodayMidnightUTC().toISOString(),
 };
 
 function checkAndResetIfNeeded(): void {
-  const elapsed = Date.now() - new Date(state.lastResetAt).getTime();
-  if (elapsed >= state.resetIntervalMs) {
+  const lastReset = new Date(state.lastResetAt);
+  const todayMidnight = getTodayMidnightUTC();
+  if (lastReset < todayMidnight) {
     for (const cat of Object.keys(state.categories) as BudgetCategory[]) {
       state.categories[cat].used = 0;
       state.categories[cat].estimatedCost = 0;
     }
     state.overallUsed = 0;
-    state.lastResetAt = new Date().toISOString();
-    console.log("[Budget] Daily budget reset completed");
+    state.lastResetAt = todayMidnight.toISOString();
+    console.log("[Budget] Daily budget reset at midnight UTC");
   }
 }
 
 export function trackCall(category: BudgetCategory, weight: number = 1): void {
   checkAndResetIfNeeded();
   state.categories[category].used += weight;
-  state.categories[category].estimatedCost += DIEM_COST_PER_CALL[category] * weight;
   state.overallUsed += weight;
+}
+
+export function trackVeniceDiem(estimatedTokens: number): void {
+  checkAndResetIfNeeded();
+  const diemCost = (estimatedTokens / 1000) * VENICE_DIEM_PER_1K_TOKENS;
+  state.categories.venice.estimatedCost += diemCost;
+}
+
+export function estimateTokensFromText(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 export function canCall(category: BudgetCategory): boolean {
@@ -107,31 +120,30 @@ export function canCall(category: BudgetCategory): boolean {
   return true;
 }
 
-export function getVeniceDiemCost(weight: number = 1): string {
-  return (DIEM_COST_PER_CALL.venice * weight).toFixed(4);
+export function getVeniceDiemCost(estimatedTokens: number = 4096): string {
+  const cost = (estimatedTokens / 1000) * VENICE_DIEM_PER_1K_TOKENS;
+  return cost.toFixed(4);
 }
 
 export function getBudgetStatus(): {
-  categories: Record<string, { used: number; limit: number; percentUsed: number; estimatedCost: number; diemCost: number }>;
+  categories: Record<string, { used: number; limit: number; percentUsed: number; diemCost: number }>;
   overall: { used: number; limit: number; percentUsed: number };
   diem: { consumed: number; budget: number; percentUsed: number; unit: string };
   lastResetAt: string;
   nextResetAt: string;
 } {
   checkAndResetIfNeeded();
-  const categories: Record<string, { used: number; limit: number; percentUsed: number; estimatedCost: number; diemCost: number }> = {};
+  const categories: Record<string, { used: number; limit: number; percentUsed: number; diemCost: number }> = {};
   for (const [key, val] of Object.entries(state.categories)) {
     categories[key] = {
       used: val.used,
       limit: val.limit,
       percentUsed: val.limit > 0 ? Math.round((val.used / val.limit) * 100) : 0,
-      estimatedCost: parseFloat(val.estimatedCost.toFixed(4)),
       diemCost: parseFloat(val.estimatedCost.toFixed(4)),
     };
   }
   const veniceDiem = state.categories.venice.estimatedCost;
   const diemBudget = getDailyDiemBudget();
-  const nextReset = new Date(new Date(state.lastResetAt).getTime() + state.resetIntervalMs);
   return {
     categories,
     overall: {
@@ -146,7 +158,7 @@ export function getBudgetStatus(): {
       unit: "DIEM",
     },
     lastResetAt: state.lastResetAt,
-    nextResetAt: nextReset.toISOString(),
+    nextResetAt: getNextMidnightUTC().toISOString(),
   };
 }
 
@@ -155,6 +167,7 @@ export function getBudgetSummaryForManifest(): {
   dailyDiemBudget: number;
   diemUnit: string;
   diemDescription: string;
+  diemPricing: string;
   resetInterval: string;
 } {
   return {
@@ -163,7 +176,8 @@ export function getBudgetSummaryForManifest(): {
     ),
     dailyDiemBudget: getDailyDiemBudget(),
     diemUnit: "DIEM",
-    diemDescription: "1 DIEM = $1/day of Venice AI compute. Agent tracks consumption against daily budget to ensure efficient resource usage.",
-    resetInterval: "24h",
+    diemDescription: "1 DIEM = $1/day of Venice AI compute. Agent tracks Venice token consumption against daily DIEM budget to ensure efficient resource usage.",
+    diemPricing: `${VENICE_DIEM_PER_1K_TOKENS} DIEM per 1K tokens (prompt + completion)`,
+    resetInterval: "24h (midnight UTC)",
   };
 }
