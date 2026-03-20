@@ -63,7 +63,7 @@ async function locusRequest<T>(
     }
 
     const response = await fetch(`${LOCUS_API_BASE}${path}`, options);
-    const json = (await response.json()) as any;
+    const json = (await response.json()) as { success?: boolean; data?: T; error?: string; message?: string };
 
     if (!response.ok || !json.success) {
       return {
@@ -73,7 +73,7 @@ async function locusRequest<T>(
       };
     }
 
-    return { success: true, data: json.data as T };
+    return { success: true, data: json.data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, error: msg };

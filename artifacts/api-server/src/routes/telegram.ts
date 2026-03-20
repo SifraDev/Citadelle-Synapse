@@ -11,7 +11,12 @@ const router: IRouter = Router();
 
 router.get("/telegram/status", async (_req, res): Promise<void> => {
   const status = getBotStatus();
-  res.json(status);
+  const { isLocusConfigured, locusHealthCheck } = await import("../lib/locus.js");
+  let locusStatus: { connected: boolean; walletAddress?: string; balance?: string } = { connected: false };
+  if (isLocusConfigured()) {
+    locusStatus = await locusHealthCheck();
+  }
+  res.json({ ...status, locus: locusStatus });
 });
 
 router.post("/telegram/send", async (req, res): Promise<void> => {

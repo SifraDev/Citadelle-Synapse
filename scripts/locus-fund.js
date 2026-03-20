@@ -1,7 +1,11 @@
 async function requestFunds() {
   console.log("Requesting initial USDC treasury from Locus (Authenticated)...");
 
-  const API_KEY = "claw_dev_NYwjIR9a1CduNDY1-tYuTLsMCAN-pDOV"; 
+  const API_KEY = process.env.LOCUS_API_KEY;
+  if (!API_KEY) {
+    console.error("❌ LOCUS_API_KEY not set in environment.");
+    process.exit(1);
+  }
 
   try {
     const response = await fetch("https://beta-api.paywithlocus.com/api/gift-code-requests", {

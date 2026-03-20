@@ -57,7 +57,27 @@ export default function Payments() {
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const locusData = (walletInfo as any)?.locus;
+  interface LocusInfo {
+    connected: boolean;
+    walletAddress?: string;
+    balance?: string;
+    chain?: string;
+    allowance?: number;
+  }
+  interface WalletWithLocus {
+    address?: string;
+    usdcBalance?: string;
+    locus?: LocusInfo;
+  }
+  interface ChargeWithLocus {
+    id: string;
+    amount: string;
+    label?: string;
+    status: string;
+    locusWalletAddress?: string;
+  }
+  const walletData = walletInfo as unknown as WalletWithLocus | undefined;
+  const locusData = walletData?.locus;
   const locusConnected = locusData?.connected === true;
 
   const connectWallet = useCallback(async () => {
@@ -326,7 +346,8 @@ export default function Payments() {
           ) : (
             <div className="space-y-3 max-h-[300px] overflow-y-auto">
               {pendingCharges.map((charge) => {
-                const isLocusCharge = !!(charge as any).locusWalletAddress;
+                const chargeData = charge as unknown as ChargeWithLocus;
+                const isLocusCharge = !!chargeData.locusWalletAddress;
                 return (
                   <div key={charge.id} className={`bg-secondary/50 rounded-lg p-4 border flex items-center justify-between ${isLocusCharge ? "border-violet-500/20" : "border-border"}`}>
                     <div>
@@ -340,7 +361,7 @@ export default function Payments() {
                     <div className="flex items-center gap-2">
                       {connectedAddress ? (
                         <button
-                          onClick={() => payCharge(charge.id, charge.amount, (charge as any).locusWalletAddress)}
+                          onClick={() => payCharge(charge.id, charge.amount, chargeData.locusWalletAddress)}
                           disabled={payingChargeId === charge.id}
                           className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50"
                         >
