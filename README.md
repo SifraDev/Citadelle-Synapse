@@ -221,6 +221,7 @@ The agent operates under delegated authority — the owner signs an EIP-712 dele
 | `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | Yes | Owner/CEO Telegram chat ID |
 | `ADMIN_API_TOKEN` | Yes | Server-side admin auth token |
+| `OWNER_ADDRESS` | Yes* | Owner EOA address — required for delegation subsystem (autonomous swaps rejected without it) |
 | `LOCUS_API_KEY` | No | Locus treasury API key |
 | `UNISWAP_API_KEY` | No | Uniswap Trade API key |
 | `BUDGET_DIEM_DAILY` | No | Daily DIEM budget (default: 5.0) |
@@ -261,11 +262,11 @@ workspace/
 │   └── web/                  # React + Vite frontend
 │       └── src/
 │           └── pages/
-│               ├── DocumentVault.tsx
-│               ├── Payments.tsx
-│               ├── ActivityLog.tsx
-│               ├── TaskScheduler.tsx
-│               └── PayPage.tsx
+│               ├── Vault.tsx         # Document Vault (upload + analysis)
+│               ├── Payments.tsx      # Wallet, delegation, identity, budget
+│               ├── Activity.tsx      # Live activity log
+│               ├── Scheduler.tsx     # Task scheduler
+│               └── Pay.tsx           # Customer-facing checkout
 ├── lib/
 │   └── api-spec/
 │       ├── openapi.yaml      # OpenAPI 3.0 specification
@@ -297,6 +298,7 @@ export PRIVATE_KEY=your_agent_private_key
 export TELEGRAM_BOT_TOKEN=your_bot_token
 export TELEGRAM_CHAT_ID=your_chat_id
 export ADMIN_API_TOKEN=your_admin_token
+export OWNER_ADDRESS=0xYourOwnerAddress
 ```
 
 ### Run
@@ -358,8 +360,3 @@ All of the above happens autonomously. The owner controls limits via delegation 
 - [Uniswap Trade API](https://docs.uniswap.org/api/trading) — Swap routing and execution
 - [Base](https://base.org) — Ethereum L2
 
----
-
-## License
-
-MIT
