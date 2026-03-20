@@ -15,8 +15,10 @@ import { sendMessage } from "./telegram.js";
 import { recordActionReceipt } from "./erc8004.js";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+const VVV_ADDRESS = "0xacfE6019Ed1A7Dc6f7B508C02d1b04ec88cC21bf" as const;
 const AGENT_WALLET = "0x0128D1EE63C0e99CB3f587E982619bC8B00Ad443" as const;
 const USDC_DECIMALS = 6;
+const VVV_DECIMALS = 18;
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
@@ -97,6 +99,22 @@ export async function getUsdcBalance(): Promise<string> {
     return formatUnits(balance as bigint, USDC_DECIMALS);
   } catch (err) {
     console.error("[Crypto] Failed to read USDC balance:", err);
+    return "0";
+  }
+}
+
+export async function getVvvBalance(): Promise<string> {
+  try {
+    const client = getPublicClient();
+    const balance = await client.readContract({
+      address: VVV_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [AGENT_WALLET],
+    });
+    return formatUnits(balance as bigint, VVV_DECIMALS);
+  } catch (err) {
+    console.error("[Crypto] Failed to read VVV balance:", err);
     return "0";
   }
 }

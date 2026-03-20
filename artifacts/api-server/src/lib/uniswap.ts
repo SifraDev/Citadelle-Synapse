@@ -18,12 +18,15 @@ import { recordActionReceipt } from "./erc8004.js";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 const ETH_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+const VVV_ADDRESS = "0xacfE6019Ed1A7Dc6f7B508C02d1b04ec88cC21bf" as const;
 const UNISWAP_UNIVERSAL_ROUTER = "0x6fF5693b99212Da76ad316178A184AB56D299b43" as const;
 const USDC_DECIMALS = 6;
+const VVV_DECIMALS = 18;
 const UNISWAP_API_BASE = "https://trade-api.gateway.uniswap.org/v1";
 const BASE_CHAIN_ID = 8453;
 
-const COMMISSION_RATE = parseFloat(process.env.COMMISSION_RATE || "0.10");
+const ETH_COMMISSION_RATE = parseFloat(process.env.ETH_COMMISSION_RATE || "0.05");
+const VVV_COMMISSION_RATE = parseFloat(process.env.VVV_COMMISSION_RATE || "0.05");
 const MIN_SWAP_THRESHOLD = parseFloat(process.env.MIN_SWAP_THRESHOLD || "0.50");
 
 const ERC20_ABI = parseAbi([
@@ -69,9 +72,15 @@ export function isUniswapConfigured(): boolean {
 
 export function getSwapConfig() {
   return {
-    commissionRate: COMMISSION_RATE,
+    commissionRate: ETH_COMMISSION_RATE + VVV_COMMISSION_RATE,
+    ethCommissionRate: ETH_COMMISSION_RATE,
+    vvvCommissionRate: VVV_COMMISSION_RATE,
     minSwapThreshold: MIN_SWAP_THRESHOLD,
   };
+}
+
+export function getVvvAddress(): string {
+  return VVV_ADDRESS;
 }
 
 interface UniswapQuoteResponse {
@@ -91,7 +100,7 @@ interface PermitData {
   values: Record<string, unknown>;
 }
 
-export async function getSwapQuote(usdcAmount: number): Promise<{
+export async function getSwapQuote(usdcAmount: number, outputToken: string = ETH_ADDRESS): Promise<{
   success: boolean;
   data?: UniswapQuoteResponse;
   error?: string;
@@ -115,7 +124,7 @@ export async function getSwapQuote(usdcAmount: number): Promise<{
         tokenInChainId: BASE_CHAIN_ID,
         tokenOutChainId: BASE_CHAIN_ID,
         tokenIn: USDC_ADDRESS,
-        tokenOut: ETH_ADDRESS,
+        tokenOut: outputToken,
         amount: amountRaw,
         type: "EXACT_INPUT",
         swapper: account.address,
@@ -316,8 +325,12 @@ async function pollOrderStatus(orderHash: string, apiKey: string): Promise<strin
   return null;
 }
 
-export async function performAutonomousSwap(usdcAmount: number): Promise<SwapResult> {
-  console.log(`[Uniswap] Autonomous swap requested: ${usdcAmount} USDC → ETH`);
+export async function performAutonomousSwap(usdcAmount: number, outputToken: string = ETH_ADDRESS): Promise<SwapResult> {
+  const isVvv = outputToken.toLowerCase() === VVV_ADDRESS.toLowerCase();
+  const outputLabel = isVvv ? "VVV" : "ETH";
+  const outputDecimals = isVvv ? VVV_DECIMALS : 18;
+
+  console.log(`[Uniswap] Autonomous swap requested: ${usdcAmount} USDC → ${outputLabel}`);
 
   if (usdcAmount < MIN_SWAP_THRESHOLD) {
     return { success: false, error: `Amount ${usdcAmount} below minimum threshold ${MIN_SWAP_THRESHOLD} USDC` };
@@ -368,17 +381,17 @@ export async function performAutonomousSwap(usdcAmount: number): Promise<SwapRes
     store.addActivity("system", `Permit2 USDC approval set (tx: ${approvalResult.txHash.slice(0, 16)}...)`);
   }
 
-  const quoteResult = await getSwapQuote(usdcAmount);
+  const quoteResult = await getSwapQuote(usdcAmount, outputToken);
   if (!quoteResult.success || !quoteResult.data) {
     return { success: false, error: quoteResult.error || "Failed to get quote" };
   }
 
   const quoteData = quoteResult.data;
   const outputAmount = quoteData.quote?.output?.amount
-    ? formatUnits(BigInt(quoteData.quote.output.amount), 18)
+    ? formatUnits(BigInt(quoteData.quote.output.amount), outputDecimals)
     : "unknown";
 
-  console.log(`[Uniswap] Quote received: ${usdcAmount} USDC → ${outputAmount} ETH`);
+  console.log(`[Uniswap] Quote received: ${usdcAmount} USDC → ${outputAmount} ${outputLabel}`);
 
   const swapResult = await executeSwap(quoteData);
   if (!swapResult.success) {
@@ -390,32 +403,33 @@ export async function performAutonomousSwap(usdcAmount: number): Promise<SwapRes
   store.addPayment({
     txHash: swapResult.txHash,
     from: getAccount()?.address || "agent-eoa",
-    to: "Uniswap (USDC→ETH)",
+    to: `Uniswap (USDC→${outputLabel})`,
     amount: usdcAmount.toString(),
-    token: "USDC→ETH",
+    token: `USDC→${outputLabel}`,
     status: "confirmed",
     timestamp: new Date().toISOString(),
     network: "Base (Swap)",
     paymentMethod: "swap",
   });
 
-  store.addActivity("payment", `Swap executed: ${usdcAmount} USDC → ${outputAmount} ETH`, {
+  store.addActivity("payment", `Swap executed: ${usdcAmount} USDC → ${outputAmount} ${outputLabel}`, {
     txHash: swapResult.txHash,
     amountIn: usdcAmount.toString(),
     amountOut: outputAmount,
     via: "uniswap",
+    outputToken: outputLabel,
   });
 
   await sendMessage(
-    `⚡ <b>USDC→ETH Swap Executed</b>\n\nIn: ${usdcAmount} USDC\nOut: ~${parseFloat(outputAmount).toFixed(6)} ETH\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>\nVia: Uniswap on Base`
+    `⚡ <b>USDC→${outputLabel} Swap Executed</b>\n\nIn: ${usdcAmount} USDC\nOut: ~${parseFloat(outputAmount).toFixed(6)} ${outputLabel}\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>\nVia: Uniswap on Base`
   );
 
   recordActionReceipt(
     "swap",
-    `USDC→ETH swap: ${usdcAmount} USDC → ${outputAmount} ETH via Uniswap`,
+    `USDC→${outputLabel} swap: ${usdcAmount} USDC → ${outputAmount} ${outputLabel} via Uniswap`,
     swapResult.txHash,
     usdcAmount.toString(),
-    "USDC→ETH",
+    `USDC→${outputLabel}`,
     "Uniswap Universal Router"
   );
 
@@ -427,7 +441,11 @@ export async function performAutonomousSwap(usdcAmount: number): Promise<SwapRes
   };
 }
 
-export function calculateCommission(paymentAmount: string): number {
+export function calculateCommission(paymentAmount: string): { ethCommission: number; vvvCommission: number; total: number } {
   const amount = parseFloat(paymentAmount);
-  return parseFloat((amount * COMMISSION_RATE).toFixed(6));
+  return {
+    ethCommission: parseFloat((amount * ETH_COMMISSION_RATE).toFixed(6)),
+    vvvCommission: parseFloat((amount * VVV_COMMISSION_RATE).toFixed(6)),
+    total: parseFloat((amount * (ETH_COMMISSION_RATE + VVV_COMMISSION_RATE)).toFixed(6)),
+  };
 }

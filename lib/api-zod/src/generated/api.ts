@@ -179,6 +179,7 @@ export const GetWalletInfoResponse = zod.object({
   address: zod.string(),
   usdcBalance: zod.string(),
   ethBalance: zod.string().optional(),
+  vvvBalance: zod.string().optional(),
   usdcContract: zod.string().optional(),
   network: zod.string(),
   chainId: zod.number(),

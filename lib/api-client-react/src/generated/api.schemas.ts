@@ -168,6 +168,7 @@ export interface WalletInfo {
   address: string;
   usdcBalance: string;
   ethBalance?: string;
+  vvvBalance?: string;
   usdcContract?: string;
   network: string;
   chainId: number;

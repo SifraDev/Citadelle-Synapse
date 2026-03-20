@@ -705,6 +705,8 @@ components:
           type: string
         ethBalance:
           type: string
+        vvvBalance:
+          type: string
         usdcContract:
           type: string
         network:

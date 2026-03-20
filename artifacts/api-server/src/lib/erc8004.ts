@@ -449,6 +449,7 @@ export function buildAgentJson(domain: string) {
       "eip712-delegation",
       "telegram-communication",
       "locus-treasury-management",
+      "vvv-compute-equity-acquisition",
     ],
     services: [
       {

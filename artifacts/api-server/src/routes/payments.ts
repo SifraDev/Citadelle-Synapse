@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { store } from "../lib/store.js";
-import { getUsdcBalance, getEthBalance, getAgentWallet, getUsdcAddress, verifyTransaction } from "../lib/crypto.js";
+import { getUsdcBalance, getEthBalance, getVvvBalance, getAgentWallet, getUsdcAddress, verifyTransaction } from "../lib/crypto.js";
 import { sendMessage } from "../lib/telegram.js";
 import {
   isLocusConfigured,
@@ -37,9 +37,10 @@ router.get("/payments", async (req, res): Promise<void> => {
 
 router.get("/payments/wallet", async (_req, res): Promise<void> => {
   try {
-    const [onChainBalance, ethBalance, locusInfo] = await Promise.all([
+    const [onChainBalance, ethBalance, vvvBalance, locusInfo] = await Promise.all([
       getUsdcBalance(),
       getEthBalance(),
+      getVvvBalance(),
       isLocusConfigured() ? getLocusBalance() : null,
     ]);
 
@@ -47,6 +48,7 @@ router.get("/payments/wallet", async (_req, res): Promise<void> => {
       address: getAgentWallet(),
       usdcBalance: onChainBalance,
       ethBalance,
+      vvvBalance,
       usdcContract: getUsdcAddress(),
       network: "Base",
       chainId: 8453,

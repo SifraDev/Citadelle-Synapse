@@ -30,6 +30,7 @@ import {
   KeyRound,
   Zap,
   Fingerprint,
+  Gem,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -79,6 +80,7 @@ export default function Payments() {
   const locusData = walletInfo?.locus;
   const locusConnected = locusData?.connected === true;
   const uniswapConfigured = walletInfo?.uniswapConfigured === true;
+  const vvvBalance = walletInfo?.vvvBalance || "0";
 
   const connectWallet = useCallback(async () => {
     if (!window.ethereum) {
@@ -312,7 +314,7 @@ export default function Payments() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {uniswapConfigured && (
           <div className="bg-card rounded-xl border border-blue-500/20 p-5 shadow-lg">
             <p className="text-sm text-blue-400 font-medium mb-1 flex items-center gap-1.5">
@@ -328,6 +330,25 @@ export default function Payments() {
                   <span className="text-sm text-blue-400 ml-2">ETH</span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">Agent gas balance</p>
+              </div>
+            )}
+          </div>
+        )}
+        {uniswapConfigured && (
+          <div className="bg-card rounded-xl border border-purple-500/20 p-5 shadow-lg">
+            <p className="text-sm text-purple-400 font-medium mb-1 flex items-center gap-1.5">
+              <Gem className="w-3.5 h-3.5" />
+              VVV Compute Equity
+            </p>
+            {loadingWallet ? (
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div>
+                <p className="text-2xl font-display text-foreground">
+                  {parseFloat(vvvBalance).toFixed(4)}
+                  <span className="text-sm text-purple-400 ml-2">VVV</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Venice governance token</p>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { store } from "./store.js";
-import { getAgentWallet, getEthBalance } from "./crypto.js";
+import { getAgentWallet, getEthBalance, getVvvBalance } from "./crypto.js";
 import { isLocusConfigured, getLocusBalance, getLocusWalletAddress } from "./locus.js";
 import { isUniswapConfigured, performAutonomousSwap } from "./uniswap.js";
 import { getDelegationStatus } from "./delegation.js";
@@ -72,7 +72,11 @@ export function initTelegramBot(): void {
               balanceMsg += "Locus: ❌ Failed to fetch\n\n";
             }
           }
-          balanceMsg += `<b>Direct Wallet</b>\nAddress: <code>${getAgentWallet()}</code>\nNetwork: Base`;
+          const vvvBal = await getVvvBalance();
+          const ethBal = await getEthBalance();
+          balanceMsg += `<b>Direct Wallet</b>\nAddress: <code>${getAgentWallet()}</code>\nNetwork: Base\n\n`;
+          balanceMsg += `<b>Gas Treasury:</b> ${parseFloat(ethBal).toFixed(6)} ETH\n`;
+          balanceMsg += `<b>VVV Compute Equity:</b> ${parseFloat(vvvBal).toFixed(4)} VVV`;
           bot?.sendMessage(Number(chatId), balanceMsg, { parse_mode: "HTML" });
           logOutgoing(chatId, balanceMsg);
           return;

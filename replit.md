@@ -48,16 +48,17 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - Locus wallet: dynamically fetched via `GET /api/pay/balance` (currently 0xa1dea7...713c)
 - Functions: getLocusBalance (10s cache), getLocusTransactions, locusSendPayment, locusHealthCheck, getLocusWalletAddress, startLocusMonitor
 - Monitor: 20s polling via `GET /api/pay/transactions`, auto-matches incoming USDC against pending charges
-- On confirmed incoming payment: if Uniswap configured, calculates 10% commission, sends via Locus to agent EOA, triggers autonomous USDC→ETH swap
+- On confirmed incoming payment: if Uniswap configured, calculates commission split (5% ETH + 5% VVV), sends total via Locus to agent EOA, triggers autonomous swaps for each
 - All charges default to Locus wallet as payment target; payments carry `paymentMethod: "direct" | "locus" | "swap"`
 - `/payments/locus/send` is auth-guarded (requires ADMIN_API_TOKEN)
 
 ### Uniswap Trading API (artifacts/api-server/src/lib/uniswap.ts)
 - Uniswap Trading API: `https://trade-api.gateway.uniswap.org/v1` (UNISWAP_API_KEY in secrets)
-- Swaps USDC→native ETH on Base mainnet via Universal Router
-- Functions: getSwapQuote, ensurePermit2Approval, executeSwap, performAutonomousSwap, calculateCommission
+- Swaps USDC→ETH or USDC→VVV on Base mainnet via Universal Router
+- VVV token: 0xacfE6019Ed1A7Dc6f7B508C02d1b04ec88cC21bf (Venice governance token, 18 decimals)
+- Functions: getSwapQuote(amount, outputToken?), ensurePermit2Approval, executeSwap, performAutonomousSwap(amount, outputToken?), calculateCommission (returns {ethCommission, vvvCommission, total}), getVvvAddress
 - Permit2 address: 0x000000000022D473030F116dDEE9F6B43aC78BA3
-- Commission rate: 10% of incoming payments, minimum threshold: 0.50 USDC
+- Commission split: ETH_COMMISSION_RATE (default 5%) + VVV_COMMISSION_RATE (default 5%) = 10% total, minimum threshold: 0.50 USDC
 - All swaps check delegation before executing; denied swaps logged as "Permission Required"
 - Supports both order-based and direct-tx execution paths
 

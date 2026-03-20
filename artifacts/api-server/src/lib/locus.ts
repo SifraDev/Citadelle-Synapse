@@ -1,7 +1,7 @@
 import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { getAgentWallet } from "./crypto.js";
-import { calculateCommission, performAutonomousSwap, isUniswapConfigured, getSwapConfig } from "./uniswap.js";
+import { calculateCommission, performAutonomousSwap, isUniswapConfigured, getSwapConfig, getVvvAddress } from "./uniswap.js";
 import { verifyDelegation } from "./delegation.js";
 import { recordActionReceipt } from "./erc8004.js";
 
@@ -247,40 +247,51 @@ async function pollLocusTransactions(): Promise<void> {
       );
 
       if (isUniswapConfigured()) {
-        const commission = calculateCommission(amount);
+        const { ethCommission, vvvCommission, total } = calculateCommission(amount);
         const { minSwapThreshold } = getSwapConfig();
-        if (commission >= minSwapThreshold) {
-          console.log(`[Locus] Commission: ${commission} USDC (${(getSwapConfig().commissionRate * 100).toFixed(0)}% of ${amount})`);
+        const totalCommission = ethCommission + vvvCommission;
+        if (ethCommission >= minSwapThreshold || vvvCommission >= minSwapThreshold) {
+          console.log(`[Locus] Commission split: ${ethCommission} USDC→ETH + ${vvvCommission} USDC→VVV (total ${total} from ${amount})`);
           try {
-            const delegationCheck = await verifyDelegation(commission);
+            const delegationCheck = await verifyDelegation(totalCommission);
             if (!delegationCheck.allowed) {
               console.log(`[Locus] Delegation denied before transfer: ${delegationCheck.reason}`);
-              store.addActivity("system", `Commission swap skipped — ${delegationCheck.reason}`, { amount: commission });
+              store.addActivity("system", `Commission swap skipped — ${delegationCheck.reason}`, { amount: totalCommission });
               await sendMessage(
-                `🔒 <b>Commission Swap Skipped</b>\n\nAmount: ${commission} USDC\nReason: ${delegationCheck.reason}\n\nSign a delegation in the dashboard to enable autonomous swaps.`
+                `🔒 <b>Commission Swap Skipped</b>\n\nAmount: ${totalCommission} USDC\nReason: ${delegationCheck.reason}\n\nSign a delegation in the dashboard to enable autonomous swaps.`
               );
             } else {
               const agentWallet = getAgentWallet();
-              const sendResult = await locusSendPayment(agentWallet, commission, `Auto-commission ${commission} USDC from payment ${tx.tx_hash?.slice(0, 12)}`);
+              const sendResult = await locusSendPayment(agentWallet, totalCommission, `Auto-commission ${totalCommission} USDC from payment ${tx.tx_hash?.slice(0, 12)}`);
               if ("error" in sendResult) {
                 console.error(`[Locus] Commission transfer failed: ${sendResult.error}`);
-                store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: commission });
+                store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: totalCommission });
               } else {
-                console.log(`[Locus] Commission ${commission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
+                console.log(`[Locus] Commission ${totalCommission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
                 store.addPayment({
                   txHash: sendResult.tx_hash,
                   from: "Locus Treasury",
                   to: agentWallet,
-                  amount: commission.toString(),
+                  amount: totalCommission.toString(),
                   token: "USDC",
                   status: "confirmed",
                   timestamp: new Date().toISOString(),
                   network: "Base (Commission)",
                   paymentMethod: "locus",
                 });
-                const swapResult = await performAutonomousSwap(commission);
-                if (!swapResult.success && !swapResult.delegationDenied) {
-                  console.error(`[Uniswap] Autonomous swap failed: ${swapResult.error}`);
+
+                if (ethCommission >= minSwapThreshold) {
+                  const ethSwapResult = await performAutonomousSwap(ethCommission);
+                  if (!ethSwapResult.success && !ethSwapResult.delegationDenied) {
+                    console.error(`[Uniswap] ETH swap failed: ${ethSwapResult.error}`);
+                  }
+                }
+
+                if (vvvCommission >= minSwapThreshold) {
+                  const vvvSwapResult = await performAutonomousSwap(vvvCommission, getVvvAddress());
+                  if (!vvvSwapResult.success && !vvvSwapResult.delegationDenied) {
+                    console.error(`[Uniswap] VVV swap failed: ${vvvSwapResult.error}`);
+                  }
                 }
               }
             }
@@ -288,7 +299,7 @@ async function pollLocusTransactions(): Promise<void> {
             console.error("[Locus] Commission/swap pipeline error:", err);
           }
         } else {
-          console.log(`[Locus] Commission ${commission} USDC below threshold ${minSwapThreshold}, skipping swap`);
+          console.log(`[Locus] Commission ${totalCommission} USDC below threshold ${minSwapThreshold}, skipping swap`);
         }
       }
     }
