@@ -77,44 +77,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/X402PaymentRequired"
-  /analyze/internal:
-    post:
-      operationId: analyzeDocumentsInternal
-      tags: [analysis]
-      summary: Upload and analyze PDF documents (internal dashboard route, no x402 paywall)
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                files:
-                  type: array
-                  items:
-                    type: string
-                    format: binary
-                mode:
-                  type: string
-                  enum: [summarize, extract_clauses, flag_risks, custom]
-                customQuery:
-                  type: string
-              required:
-                - files
-                - mode
-      responses:
-        "200":
-          description: SSE stream of analysis results
-          content:
-            text/event-stream:
-              schema:
-                type: string
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
   /tasks:
     get:
       operationId: listTasks

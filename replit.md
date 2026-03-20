@@ -74,8 +74,8 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - External callers to POST /api/analyze get 402 response with payment facilitation JSON
 - Callers include X-Payment-TxHash header to prove USDC payment
 - Middleware verifies on-chain USDC transfer to agent wallet before allowing access
-- Internal dashboard uses POST /api/analyze/internal (separate route, no x402 middleware)
-- Admin bearer token (ADMIN_API_TOKEN) bypasses x402 for programmatic internal access
+- Dashboard bypasses x402 via ADMIN_API_TOKEN bearer auth (token injected via VITE_ADMIN_API_TOKEN env var)
+- Only ADMIN_API_TOKEN bearer auth bypasses x402 — no spoofable headers (Origin, Referer, XHR) are trusted
 - GET /api/x402/info returns machine-readable pricing and payment instructions
 - Configurable via X402_BASE_PRICE (default 1.00 USDC) and X402_PRICE_PER_PAGE (default 0.50 USDC)
 - Payment tx hashes are single-use (anti-replay) — stored in consumedTxHashes Map
@@ -172,13 +172,13 @@ artifacts-monorepo/
 - `UNISWAP_API_KEY` — Uniswap Trading API key
 - `LOCUS_API_KEY` — Locus payment API key
 - `LOCUS_PRIVATE_KEY` — Locus private key
-- `ADMIN_API_TOKEN` — Admin token for auth-guarded endpoints
+- `ADMIN_API_TOKEN` — Admin token for auth-guarded endpoints and x402 bypass
+- `VITE_ADMIN_API_TOKEN` — Same admin token exposed to Vite frontend (for dashboard x402 bypass)
 
 ## API Endpoints
 
 - `GET /api/healthz` — Health check
-- `POST /api/analyze` — Upload PDFs + stream analysis (x402-gated for external callers, multipart/form-data, SSE response)
-- `POST /api/analyze/internal` — Upload PDFs + stream analysis (internal dashboard route, no x402)
+- `POST /api/analyze` — Upload PDFs + stream analysis (x402-gated for external callers, admin token bypasses, multipart/form-data, SSE response)
 - `POST /api/draft` — Generate sanitized PDF draft from analysis text (PII redacted via Venice AI, zero-retention)
 - `GET /api/tasks` — List scheduled tasks
 - `POST /api/tasks` — Create scheduled task

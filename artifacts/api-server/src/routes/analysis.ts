@@ -145,6 +145,4 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
 
 router.post("/analyze", x402Middleware, upload.array("files", 20), handleAnalysis);
 
-router.post("/analyze/internal", upload.array("files", 20), handleAnalysis);
-
 export default router;
