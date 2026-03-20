@@ -363,6 +363,21 @@ export async function performAutonomousSwap(usdcAmount: number, outputToken: str
     await sendMessage(
       `🔒 <b>Swap Blocked — Permission Required</b>\n\nAmount: ${usdcAmount} USDC\nReason: ${delegationCheck.reason}\n\nPlease sign a delegation in the dashboard.`
     );
+    recordActionReceipt(
+      "delegation",
+      `Swap ${usdcAmount} USDC → ${outputLabel} blocked — delegation required`,
+      undefined,
+      usdcAmount.toString(),
+      `USDC→${outputLabel}`,
+      undefined,
+      {
+        trigger: `Autonomous swap requested: ${usdcAmount} USDC → ${outputLabel}`,
+        plan: `Verify delegation → check balance → get Uniswap quote → execute swap`,
+        execution: `Delegation check failed: ${delegationCheck.reason}`,
+        verification: "No valid EIP-712 delegation signature — swap not authorized",
+        outcome: `Swap blocked, ${usdcAmount} USDC remains on agent EOA. Operator notified via Telegram.`,
+      }
+    );
     return { success: false, delegationDenied: true, reason: delegationCheck.reason };
   }
 

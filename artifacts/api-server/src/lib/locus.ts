@@ -250,7 +250,14 @@ async function pollLocusTransactions(): Promise<void> {
         tx.tx_hash,
         amount,
         "USDC",
-        tx.from_address
+        tx.from_address,
+        {
+          trigger: `Locus transaction monitor detected incoming ${amount} USDC (tx: ${tx.tx_hash?.slice(0, 12)}...)`,
+          plan: `Record payment, ${matchedCharge ? "match against pending charge " + matchedCharge.id.slice(0, 8) : "no matching charge"}, notify operator via Telegram, evaluate commission pipeline`,
+          execution: `Payment recorded, ${matchedCharge ? "charge " + matchedCharge.id.slice(0, 8) + " marked paid" : "no charge matched"}, Telegram notification sent`,
+          verification: `Locus transaction confirmed: ${tx.tx_hash?.slice(0, 16)}...`,
+          outcome: `${amount} USDC payment logged from ${tx.from_address?.slice(0, 10)}...${matchedCharge ? ", charge fulfilled" : ""}`,
+        }
       );
 
       if (isUniswapConfigured()) {
@@ -267,12 +274,42 @@ async function pollLocusTransactions(): Promise<void> {
               await sendMessage(
                 `🔒 <b>Commission Swap Skipped</b>\n\nAmount: ${totalCommission} USDC\nReason: ${delegationCheck.reason}\n\nSign a delegation in the dashboard to enable autonomous swaps.`
               );
+              recordActionReceipt(
+                "delegation",
+                `Commission swap blocked — delegation required for ${totalCommission} USDC`,
+                undefined,
+                totalCommission.toString(),
+                "USDC",
+                undefined,
+                {
+                  trigger: `Commission pipeline: ${totalCommission} USDC accumulated from incoming ${amount} USDC payment`,
+                  plan: `Transfer commission to agent EOA then swap ${ethCommission.toFixed(4)} USDC→ETH + ${vvvCommission.toFixed(4)} USDC→VVV`,
+                  execution: `Delegation check failed: ${delegationCheck.reason}`,
+                  verification: "No delegation signature found — autonomous swaps not authorized",
+                  outcome: `Commission swap skipped, ${totalCommission} USDC remains in Locus treasury. Operator notified via Telegram.`,
+                }
+              );
             } else {
               const agentWallet = getAgentWallet();
               const sendResult = await locusSendPayment(agentWallet, totalCommission, `Auto-commission ${totalCommission} USDC from payment ${tx.tx_hash?.slice(0, 12)}`);
               if ("error" in sendResult) {
                 console.error(`[Locus] Commission transfer failed: ${sendResult.error}`);
                 store.addActivity("system", `Commission transfer failed: ${sendResult.error}`, { amount: totalCommission });
+                recordActionReceipt(
+                  "payment",
+                  `Commission transfer failed: ${sendResult.error}`,
+                  undefined,
+                  totalCommission.toString(),
+                  "USDC",
+                  undefined,
+                  {
+                    trigger: `Commission pipeline: ${totalCommission} USDC to transfer from Locus to agent EOA`,
+                    plan: `Transfer ${totalCommission} USDC via Locus to agent wallet for swap`,
+                    execution: `Locus send failed: ${sendResult.error}`,
+                    verification: "Transfer not confirmed — pipeline halted",
+                    outcome: `Commission transfer failed, swaps not attempted. Commission remains in Locus treasury.`,
+                  }
+                );
               } else {
                 console.log(`[Locus] Commission ${totalCommission} USDC sent to agent EOA (tx: ${sendResult.tx_hash})`);
                 store.addPayment({
@@ -331,6 +368,21 @@ async function pollLocusTransactions(): Promise<void> {
           }
         } else {
           console.log(`[Locus] Commission ${totalCommission} USDC below threshold ${minSwapThreshold}, skipping swap`);
+          recordActionReceipt(
+            "payment",
+            `Commission ${totalCommission} USDC below swap threshold ${minSwapThreshold}`,
+            tx.tx_hash,
+            totalCommission.toString(),
+            "USDC",
+            tx.from_address,
+            {
+              trigger: `Incoming Locus payment: ${amount} USDC — commission calculated at ${totalCommission} USDC`,
+              plan: `Evaluate commission for swap eligibility (threshold: ${minSwapThreshold} USDC)`,
+              execution: `Commission ${totalCommission} USDC is below minimum swap threshold of ${minSwapThreshold} USDC`,
+              verification: `ETH leg: ${ethCommission.toFixed(4)} USDC (${ethCommission >= minSwapThreshold ? "above" : "below"} threshold), VVV leg: ${vvvCommission.toFixed(4)} USDC (${vvvCommission >= minSwapThreshold ? "above" : "below"} threshold)`,
+              outcome: `Swap deferred — commission accumulates until threshold reached`,
+            }
+          );
         }
       }
     }
