@@ -5,11 +5,11 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { LocusStatus } from "./locusStatus";
 
-export interface TelegramStatus {
+export interface LocusStatus {
   connected: boolean;
-  botUsername?: string;
-  chatId?: string;
-  locus?: LocusStatus;
+  walletAddress?: string;
+  balance?: string;
+  chain?: string;
+  allowance?: number;
 }

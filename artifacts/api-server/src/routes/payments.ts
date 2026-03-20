@@ -135,7 +135,10 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
   if (isLocusCharge && isLocusConfigured()) {
     const locusTxData = await getLocusTransactions(50);
     const locusTx = locusTxData?.transactions.find((tx) => tx.tx_hash === txHash);
-    if (locusTx) {
+    const isIncoming = locusTx && (locusTx.type === "receive" || locusTx.type === "incoming" || locusTx.type === "credit");
+    const isConfirmed = locusTx && (locusTx.status === "confirmed" || locusTx.status === "completed" || locusTx.status === "success");
+    const recipientMatch = locusTx && locusTx.to_address?.toLowerCase() === expectedRecipient.toLowerCase();
+    if (locusTx && isIncoming && isConfirmed && recipientMatch) {
       verification = {
         verified: true,
         from: locusTx.from_address,

@@ -5,6 +5,7 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { PaymentEntryPaymentMethod } from "./paymentEntryPaymentMethod";
 import type { PaymentEntryStatus } from "./paymentEntryStatus";
 
 export interface PaymentEntry {
@@ -17,4 +18,5 @@ export interface PaymentEntry {
   status: PaymentEntryStatus;
   timestamp: Date;
   network?: string;
+  paymentMethod?: PaymentEntryPaymentMethod;
 }

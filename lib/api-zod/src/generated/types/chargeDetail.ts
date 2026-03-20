@@ -5,6 +5,7 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChargeDetailPaymentMethod } from "./chargeDetailPaymentMethod";
 import type { ChargeDetailStatus } from "./chargeDetailStatus";
 
 export interface ChargeDetail {
@@ -20,4 +21,6 @@ export interface ChargeDetail {
   usdcContract?: string;
   network: string;
   chainId: number;
+  paymentMethod?: ChargeDetailPaymentMethod;
+  locusWalletAddress?: string;
 }

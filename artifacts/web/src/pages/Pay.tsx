@@ -143,7 +143,7 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
   }
 
   const isPaid = charge.status === "paid";
-  const isLocusCharge = (charge as unknown as { paymentMethod?: string }).paymentMethod === "locus";
+  const isLocusCharge = charge.paymentMethod === "locus";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

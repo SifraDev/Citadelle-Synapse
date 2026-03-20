@@ -108,10 +108,19 @@ export interface ActivityEntry {
   metadata?: ActivityEntryMetadata;
 }
 
+export interface LocusStatus {
+  connected: boolean;
+  walletAddress?: string;
+  balance?: string;
+  chain?: string;
+  allowance?: number;
+}
+
 export interface TelegramStatus {
   connected: boolean;
   botUsername?: string;
   chatId?: string;
+  locus?: LocusStatus;
 }
 
 export interface TelegramMessageInput {
@@ -133,6 +142,14 @@ export const PaymentEntryStatus = {
   failed: "failed",
 } as const;
 
+export type PaymentEntryPaymentMethod =
+  (typeof PaymentEntryPaymentMethod)[keyof typeof PaymentEntryPaymentMethod];
+
+export const PaymentEntryPaymentMethod = {
+  direct: "direct",
+  locus: "locus",
+} as const;
+
 export interface PaymentEntry {
   id: string;
   txHash?: string;
@@ -143,6 +160,7 @@ export interface PaymentEntry {
   status: PaymentEntryStatus;
   timestamp: string;
   network?: string;
+  paymentMethod?: PaymentEntryPaymentMethod;
 }
 
 export interface WalletInfo {
@@ -151,6 +169,7 @@ export interface WalletInfo {
   usdcContract?: string;
   network: string;
   chainId: number;
+  locus?: LocusStatus;
 }
 
 export type ChargeRequestStatus =
@@ -171,6 +190,7 @@ export interface ChargeRequest {
   paidAt?: string;
   txHash?: string;
   paidFrom?: string;
+  locusWalletAddress?: string;
 }
 
 export interface CreateChargeInput {
@@ -187,6 +207,14 @@ export const ChargeDetailStatus = {
   expired: "expired",
 } as const;
 
+export type ChargeDetailPaymentMethod =
+  (typeof ChargeDetailPaymentMethod)[keyof typeof ChargeDetailPaymentMethod];
+
+export const ChargeDetailPaymentMethod = {
+  direct: "direct",
+  locus: "locus",
+} as const;
+
 export interface ChargeDetail {
   id: string;
   amount: string;
@@ -200,6 +228,8 @@ export interface ChargeDetail {
   usdcContract?: string;
   network: string;
   chainId: number;
+  paymentMethod?: ChargeDetailPaymentMethod;
+  locusWalletAddress?: string;
 }
 
 export interface ConfirmPaymentInput {

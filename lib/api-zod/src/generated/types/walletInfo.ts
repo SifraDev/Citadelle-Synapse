@@ -5,6 +5,7 @@
  * Venice AI Legal Analysis Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { LocusStatus } from "./locusStatus";
 
 export interface WalletInfo {
   address: string;
@@ -12,4 +13,5 @@ export interface WalletInfo {
   usdcContract?: string;
   network: string;
   chainId: number;
+  locus?: LocusStatus;
 }

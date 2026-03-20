@@ -117,6 +117,15 @@ export const GetTelegramStatusResponse = zod.object({
   connected: zod.boolean(),
   botUsername: zod.string().optional(),
   chatId: zod.string().optional(),
+  locus: zod
+    .object({
+      connected: zod.boolean(),
+      walletAddress: zod.string().optional(),
+      balance: zod.string().optional(),
+      chain: zod.string().optional(),
+      allowance: zod.number().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -159,6 +168,7 @@ export const GetPaymentsResponseItem = zod.object({
   status: zod.enum(["pending", "confirmed", "failed"]),
   timestamp: zod.date(),
   network: zod.string().optional(),
+  paymentMethod: zod.enum(["direct", "locus"]).optional(),
 });
 export const GetPaymentsResponse = zod.array(GetPaymentsResponseItem);
 
@@ -171,6 +181,15 @@ export const GetWalletInfoResponse = zod.object({
   usdcContract: zod.string().optional(),
   network: zod.string(),
   chainId: zod.number(),
+  locus: zod
+    .object({
+      connected: zod.boolean(),
+      walletAddress: zod.string().optional(),
+      balance: zod.string().optional(),
+      chain: zod.string().optional(),
+      allowance: zod.number().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -185,6 +204,7 @@ export const ListChargesResponseItem = zod.object({
   paidAt: zod.date().optional(),
   txHash: zod.string().optional(),
   paidFrom: zod.string().optional(),
+  locusWalletAddress: zod.string().optional(),
 });
 export const ListChargesResponse = zod.array(ListChargesResponseItem);
 
@@ -216,6 +236,8 @@ export const GetChargeResponse = zod.object({
   usdcContract: zod.string().optional(),
   network: zod.string(),
   chainId: zod.number(),
+  paymentMethod: zod.enum(["direct", "locus"]).optional(),
+  locusWalletAddress: zod.string().optional(),
 });
 
 /**
@@ -250,4 +272,5 @@ export const ConfirmPaymentResponse = zod.object({
   status: zod.enum(["pending", "confirmed", "failed"]),
   timestamp: zod.date(),
   network: zod.string().optional(),
+  paymentMethod: zod.enum(["direct", "locus"]).optional(),
 });

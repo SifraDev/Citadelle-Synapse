@@ -506,6 +506,23 @@ components:
           type: string
         chatId:
           type: string
+        locus:
+          $ref: "#/components/schemas/LocusStatus"
+      required:
+        - connected
+    LocusStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        walletAddress:
+          type: string
+        balance:
+          type: string
+        chain:
+          type: string
+        allowance:
+          type: number
       required:
         - connected
     TelegramMessageInput:
@@ -549,6 +566,9 @@ components:
           format: date-time
         network:
           type: string
+        paymentMethod:
+          type: string
+          enum: [direct, locus]
       required:
         - id
         - amount
@@ -568,6 +588,8 @@ components:
           type: string
         chainId:
           type: integer
+        locus:
+          $ref: "#/components/schemas/LocusStatus"
       required:
         - address
         - usdcBalance
@@ -594,6 +616,8 @@ components:
         txHash:
           type: string
         paidFrom:
+          type: string
+        locusWalletAddress:
           type: string
       required:
         - id
@@ -639,6 +663,11 @@ components:
           type: string
         chainId:
           type: integer
+        paymentMethod:
+          type: string
+          enum: [direct, locus]
+        locusWalletAddress:
+          type: string
       required:
         - id
         - amount

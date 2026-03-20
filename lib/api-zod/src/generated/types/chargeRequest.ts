@@ -16,4 +16,5 @@ export interface ChargeRequest {
   paidAt?: Date;
   txHash?: string;
   paidFrom?: string;
+  locusWalletAddress?: string;
 }
