@@ -424,6 +424,12 @@ export default function Payments() {
             </div>
           ) : (
             <div className="space-y-3">
+              {delegation?.expired ? (
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <span className="text-amber-500 font-medium text-sm">Delegation Expired</span>
+                </div>
+              ) : null}
               <p className="text-sm text-muted-foreground">
                 {delegation?.reason || "No delegation signed. Grant permission for the agent to autonomously swap USDC to ETH."}
               </p>
