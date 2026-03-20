@@ -230,7 +230,8 @@ export async function verifyTransaction(txHash: string, recipientAddress?: strin
     const value = transferLog.data ? BigInt(transferLog.data) : 0n;
     const amount = formatUnits(value, USDC_DECIMALS);
 
-    return { verified: true, from, to: AGENT_WALLET, amount };
+    const to = "0x" + (transferLog.topics[2] || "").slice(26);
+    return { verified: true, from, to, amount };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { verified: false, error: `Verification failed: ${msg}` };
