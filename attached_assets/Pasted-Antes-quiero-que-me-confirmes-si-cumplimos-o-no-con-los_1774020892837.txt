@@ -1,0 +1,83 @@
+Antes quiero que me confirmes si cumplimos o no con los requisitos, que sobra, que falta y que tenemos:
+INSTRUCTIONS:
+Venice
+venice.ai
+$11,500
+total prize pool from Venice
+Private Agents, Trusted Actions
+$11,500
+Ethereum provides public coordination; Venice provides private cognition. Build agents that reason over sensitive data without exposure, producing trustworthy outputs for public systems: onchain workflows, multi-agent coordination, governance, and operational decisions. This track focuses on the layer between private intelligence and public consequence: confidential treasury management, private governance analysis, deal negotiation agents, onchain risk desks, and sensitive due diligence. Agents that keep secrets. Agents that trust. Venice provides no-data-retention inference, an OpenAI-compatible API, and multimodal reasoning across text, vision, and audio. Your job is to wire private cognition to trustworthy public action. Example project directions: private treasury copilots, confidential governance analysts, private deal negotiation agents, onchain risk desks, confidential due diligence agents, private multi-agent coordination systems. Prizes are denominated in VVV, Venice's native ecosystem token. VVV is an ownership asset in the Venice intelligence economy — hold it, stake it, and use it to mint DIEM. DIEM is tokenized API access: each DIEM equals $1/day of Venice compute, perpetually — renewable, tradeable as an ERC20 on Base. The strategic value of winning VVV is ongoing access to Venice's intelligence infrastructure, not a one-time cash equivalent. This is a stake in the private AI economy.
+MetaMask
+metamask.io
+$10,000
+total prize pool from MetaMask
+$5,000 open track +$5,000 partner track
+Best Use of Delegations
+$5,000
+Awarded to projects that use the MetaMask Delegation Framework in creative, novel, and meaningful ways. Build apps, agent tooling, coordination systems, or anything that meaningfully leverages delegations — via gator-cli, the Smart Accounts Kit, or direct contract integration. The strongest submissions use intent-based delegations as a core pattern, extend ERC-7715 with sub-delegations or novel permission models, or combine ZK proofs with delegation-based authorization. Standard patterns without meaningful innovation will not place.
+Uniswap
+uniswap.org
+$10,000
+total prize pool from Uniswap
+$5,000 open track +$5,000 partner track
+Agentic Finance (Best Uniswap API Integration)
+$5,000
+Build the future of agentic finance with Uniswap. Integrate the Uniswap API to give your agent the ability to swap, bridge, and settle value onchain with transparency, composability, and real execution. Agents that trade, coordinate with other agents, or invent primitives we haven't imagined yet — if it's powered by Uniswap and it ships, we want to see it. Requirements: Every submission must integrate the Uniswap API with a real API key from the Developer Platform. Functional swaps with real TxIDs on testnet or mainnet. Open source, public GitHub with README. No mocks, no workarounds. Bonus: the deeper your agent goes into the Uniswap stack — Hooks, AI Skills, Unichain, v4 contracts, Permit2 — the more we notice. Any agent that pays needs to swap. We're that layer. Show us what comes next. Resources: - Uniswap API - Uniswap AI Skills - Uniswap API Docs - Uniswap Docs
+Locus
+paywithlocus.com
+$3,000
+total prize pool from Locus
+Best Use of Locus
+$3,000
+Award for projects that most meaningfully integrate Locus payment infrastructure for AI agents. Projects must use Locus wallets, spending controls, pay-per-use APIs, or vertical tools as core to the product — not bolted on. Automatic disqualification for projects without a working Locus integration. On Base chain, USDC only. The more deeply Locus is woven into the agent's autonomous payment flows, the better.
+Base
+base.org
+$10,000
+total prize pool from Base
+Autonomous Trading Agent
+$5,000
+Build an autonomous trading agent that implements novel strategies and has proven profitability. We want to see teams build trading agents that go beyond simple strategies and break new ground in complexity for agents that are trading autonomously.
+Agent Services on Base
+$5,000
+Build an agent service (an agent that provides services to other agents or humans) which can be easily discovered on Base and accepts payments via x402 for its services. We're looking for agent services that provide meaningful utility and that illustrates other agents' and humans' willingness to pay for their services. They should leverage agent coordination infrastructure to ensure the agent is discoverable.
+Protocol Labs
+www.protocol.ai
+$16,000
+total prize pool from Protocol Labs
+🤖 Let the Agent Cook — No Humans Required
+$8,000
+Build fully autonomous agents that can operate end-to-end without human assistance. Agents should be capable of discovering a problem, planning a solution, executing tasks using real tools, and producing a meaningful output. We're looking for agents that behave more like independent operators than scripts. **Required Capabilities:** 1. Autonomous Execution — full decision loop: discover → plan → execute → verify → submit; demonstrate task decomposition, autonomous decision-making, and self-correction 2. Agent Identity — register a unique ERC-8004 identity linked to an agent operator wallet; include ERC-8004 registration transaction 3. Agent Capability Manifest — machine-readable agent.json with agent name, operator wallet, ERC-8004 identity, supported tools, tech stacks, compute constraints, and task categories 4. Structured Execution Logs — agent_log.json showing decisions, tool calls, retries, failures, and final outputs to verify autonomous operation 5. Tool Use — interact with real tools or APIs (code generation, GitHub, blockchain transactions, data APIs, deployment platforms); multi-tool orchestration scores higher than single-tool usage 6. Safety and Guardrails — safeguards before irreversible actions: validating transaction parameters, confirming API outputs, detecting unsafe operations, aborting or retrying safely 7. Compute Budget Awareness — operate within a defined compute budget; demonstrate efficient resource usage and avoid excessive calls or runaway loops **Bonus Features:** ERC-8004 trust signal integration, multi-agent swarms with specialized roles (planner, developer, QA, deployment). Sponsored by Ethereum Foundation. $8,000 total prize pool.
+Agents With Receipts — ERC-8004
+$8,004
+Build agents that can be trusted. As autonomous agents begin interacting with each other, we need systems that allow agents to verify identity, reputation, and capabilities. This challenge focuses on building systems that leverage ERC-8004, a decentralized trust framework for autonomous agents. **Required Capabilities:** 1. ERC-8004 Integration — interact with identity, reputation, and/or validation registries via real onchain transactions (using multiple registries scores higher) 2. Autonomous Agent Architecture — structured autonomous systems demonstrating planning, execution, verification, and decision loops; multi-agent coordination encouraged 3. Agent Identity + Operator Model — agents must register an ERC-8004 identity linked to an operator wallet to build reputation history and transact with other agents 4. Onchain Verifiability — verifiable transactions demonstrating ERC-8004 usage (agent identity registration, reputation updates, validation credentials), viewable on a blockchain explorer 5. DevSpot Agent Compatibility — must implement the DevSpot Agent Manifest and provide agent.json and agent_log.json Sponsored by PL_Genesis.
+Synthesis Open Track
+$25,000
+total prize pool from Synthesis Open Track
+The Synthesis Open Track is the shared prize pool for the entire hackathon. Instead of limiting yourself to a single partner bounty, you enter a track judged by a meta-agent that blends the values of all partner judges.
+CONTRIBUTORS
+Uniswap
+$5,000
+Celo
+$5,000
+MetaMask
+$5,000
+Bankr
+$2,500
+SuperRare
+$2,500
+Octant
+$2,000
+Olas
+$1,300
+Zyfai
+$500
+Lido
+$500
+ENS
+$200
+bond.credit
+$200
+Arkhai
+$100
+Markee
+$0
