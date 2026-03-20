@@ -71,6 +71,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Payment required (x402 protocol)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/X402PaymentRequired"
   /tasks:
     get:
       operationId: listTasks
@@ -1111,3 +1117,55 @@ components:
           type: string
       required:
         - success
+    X402PaymentRequired:
+      type: object
+      properties:
+        status:
+          type: integer
+          enum: [402]
+        protocol:
+          type: string
+          enum: [x402]
+        message:
+          type: string
+        paymentDetails:
+          type: object
+          properties:
+            recipient:
+              type: string
+            token:
+              type: string
+            tokenSymbol:
+              type: string
+            chain:
+              type: string
+            chainId:
+              type: integer
+            minimumAmount:
+              type: string
+            pricePerPage:
+              type: string
+            currency:
+              type: string
+          required:
+            - recipient
+            - token
+            - minimumAmount
+        headers:
+          type: object
+          properties:
+            required:
+              type: string
+            description:
+              type: string
+        discoveryEndpoint:
+          type: string
+        error:
+          type: string
+        providedTxHash:
+          type: string
+      required:
+        - status
+        - protocol
+        - message
+        - paymentDetails

@@ -397,6 +397,47 @@ export interface SwapResult {
   reason?: string;
 }
 
+export type X402PaymentRequiredStatus =
+  (typeof X402PaymentRequiredStatus)[keyof typeof X402PaymentRequiredStatus];
+
+export const X402PaymentRequiredStatus = {
+  NUMBER_402: 402,
+} as const;
+
+export type X402PaymentRequiredProtocol =
+  (typeof X402PaymentRequiredProtocol)[keyof typeof X402PaymentRequiredProtocol];
+
+export const X402PaymentRequiredProtocol = {
+  x402: "x402",
+} as const;
+
+export type X402PaymentRequiredPaymentDetails = {
+  recipient: string;
+  token: string;
+  tokenSymbol?: string;
+  chain?: string;
+  chainId?: number;
+  minimumAmount: string;
+  pricePerPage?: string;
+  currency?: string;
+};
+
+export type X402PaymentRequiredHeaders = {
+  required?: string;
+  description?: string;
+};
+
+export interface X402PaymentRequired {
+  status: X402PaymentRequiredStatus;
+  protocol: X402PaymentRequiredProtocol;
+  message: string;
+  paymentDetails: X402PaymentRequiredPaymentDetails;
+  headers?: X402PaymentRequiredHeaders;
+  discoveryEndpoint?: string;
+  error?: string;
+  providedTxHash?: string;
+}
+
 export type AnalyzeDocumentsBodyMode =
   (typeof AnalyzeDocumentsBodyMode)[keyof typeof AnalyzeDocumentsBodyMode];
 

@@ -4,7 +4,8 @@ import { createRequire } from "module";
 import { streamAnalysis } from "../lib/venice.js";
 import { store } from "../lib/store.js";
 import { sendMessage } from "../lib/telegram.js";
-import { x402Middleware, getX402PricingInfo } from "../lib/x402.js";
+import { x402Middleware, getX402PricingInfo, type X402PaymentContext } from "../lib/x402.js";
+import { recordActionReceipt } from "../lib/erc8004.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -56,6 +57,8 @@ router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, r
   const sendSSE = (event: string, data: unknown) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
+
+  const x402Payment = (req as any)._x402Payment as X402PaymentContext | undefined;
 
   try {
     sendSSE("status", { phase: "extracting", message: "Extracting text from PDFs..." });
@@ -112,6 +115,24 @@ router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, r
     await sendMessage(
       `📋 <b>Document Analysis Complete</b>\n\nMode: ${mode}\nDocuments: ${files.length}\n\n${truncatedSummary}${fullResponse.length > 500 ? "..." : ""}`
     );
+
+    if (x402Payment) {
+      recordActionReceipt(
+        "payment",
+        `x402-paid analysis completed: ${mode} mode, ${files.length} documents, payment ${x402Payment.amount} USDC`,
+        x402Payment.txHash,
+        x402Payment.amount,
+        "USDC",
+        x402Payment.from,
+        {
+          trigger: `x402 payment verified (${x402Payment.amount} USDC from ${x402Payment.from.slice(0, 10)}...)`,
+          plan: `Process ${files.length} document(s) in ${mode} mode via Venice AI`,
+          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced`,
+          verification: `Payment tx ${x402Payment.txHash.slice(0, 16)}... confirmed on-chain`,
+          outcome: `x402-paid analysis delivered successfully`,
+        }
+      );
+    }
 
     sendSSE("done", { message: "Stream complete" });
   } catch (err: any) {

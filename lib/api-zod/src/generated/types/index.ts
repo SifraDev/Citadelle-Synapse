@@ -56,3 +56,8 @@ export * from "./walletInfo";
 export * from "./x402Info";
 export * from "./x402InfoPaymentDetails";
 export * from "./x402InfoServicesItem";
+export * from "./x402PaymentRequired";
+export * from "./x402PaymentRequiredHeaders";
+export * from "./x402PaymentRequiredPaymentDetails";
+export * from "./x402PaymentRequiredProtocol";
+export * from "./x402PaymentRequiredStatus";

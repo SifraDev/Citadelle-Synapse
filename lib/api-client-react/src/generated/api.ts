@@ -45,6 +45,7 @@ import type {
   TelegramStatus,
   WalletInfo,
   X402Info,
+  X402PaymentRequired,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -160,7 +161,7 @@ export const analyzeDocuments = async (
 };
 
 export const getAnalyzeDocumentsMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | X402PaymentRequired>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -201,13 +202,15 @@ export type AnalyzeDocumentsMutationResult = NonNullable<
   Awaited<ReturnType<typeof analyzeDocuments>>
 >;
 export type AnalyzeDocumentsMutationBody = BodyType<AnalyzeDocumentsBody>;
-export type AnalyzeDocumentsMutationError = ErrorType<ErrorResponse>;
+export type AnalyzeDocumentsMutationError = ErrorType<
+  ErrorResponse | X402PaymentRequired
+>;
 
 /**
  * @summary Upload and analyze PDF documents
  */
 export const useAnalyzeDocuments = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | X402PaymentRequired>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
