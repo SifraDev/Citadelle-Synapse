@@ -17,6 +17,7 @@ import { getAgentWallet } from "./crypto.js";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 const ETH_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+const UNISWAP_UNIVERSAL_ROUTER = "0x6fF5693b99212Da76ad316178A184AB56D299b43" as const;
 const USDC_DECIMALS = 6;
 const UNISWAP_API_BASE = "https://trade-api.gateway.uniswap.org/v1";
 const BASE_CHAIN_ID = 8453;
@@ -262,6 +263,13 @@ async function executeViaDirectTx(
   methodParameters: { calldata: string; value: string; to: string },
   account: ReturnType<typeof privateKeyToAccount>
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  if (methodParameters.to.toLowerCase() !== UNISWAP_UNIVERSAL_ROUTER.toLowerCase()) {
+    return {
+      success: false,
+      error: `Transaction target ${methodParameters.to} does not match allowed Uniswap Universal Router (${UNISWAP_UNIVERSAL_ROUTER}) — rejected by delegation contract enforcement`,
+    };
+  }
+
   try {
     const walletClient = createWalletClient({
       account,
