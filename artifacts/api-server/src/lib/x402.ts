@@ -1,5 +1,4 @@
 import type { Request, Response, NextFunction } from "express";
-import crypto from "crypto";
 import { getAgentWallet, getUsdcAddress, verifyTransaction } from "./crypto.js";
 import { addAgentLogEntry } from "./erc8004.js";
 import { store } from "./store.js";
@@ -10,12 +9,6 @@ const X402_PRICE_PER_PAGE = parseFloat(process.env.X402_PRICE_PER_PAGE || "0.50"
 const X402_BASE_PRICE = parseFloat(process.env.X402_BASE_PRICE || "1.00");
 
 const consumedTxHashes = new Map<string, { usedAt: string; amount: string }>();
-
-const INTERNAL_TOKEN = process.env.ADMIN_API_TOKEN || crypto.randomBytes(32).toString("hex");
-
-export function getInternalToken(): string {
-  return INTERNAL_TOKEN;
-}
 
 export function getX402PricingInfo() {
   return {
@@ -68,24 +61,11 @@ function buildPaymentRequiredResponse() {
   };
 }
 
-function isInternalRequest(req: Request): boolean {
+function isAdminRequest(req: Request): boolean {
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  if (!adminToken) return false;
   const authHeader = req.headers.authorization;
-  if (authHeader === `Bearer ${INTERNAL_TOKEN}`) {
-    return true;
-  }
-
-  const internalHeader = req.get("x-internal-token");
-  if (internalHeader === INTERNAL_TOKEN) {
-    return true;
-  }
-
-  const cookieHeader = req.headers.cookie || "";
-  const cookieMatch = cookieHeader.match(/(?:^|;\s*)_x402_session=([^;]+)/);
-  if (cookieMatch && cookieMatch[1] === INTERNAL_TOKEN) {
-    return true;
-  }
-
-  return false;
+  return authHeader === `Bearer ${adminToken}`;
 }
 
 export interface X402PaymentContext {
@@ -95,7 +75,7 @@ export interface X402PaymentContext {
 }
 
 export function x402Middleware(req: Request, res: Response, next: NextFunction): void {
-  if (isInternalRequest(req)) {
+  if (isAdminRequest(req)) {
     next();
     return;
   }
@@ -175,11 +155,12 @@ export function x402Middleware(req: Request, res: Response, next: NextFunction):
         `💳 <b>x402 Payment Received</b>\n\nAmount: ${result.amount} USDC\nFrom: <code>${result.from}</code>\nProtocol: x402\nTx: <a href="https://basescan.org/tx/${txHash}">${txHash.slice(0, 16)}...</a>`
       );
 
-      (req as any)._x402Payment = {
+      const paymentCtx: X402PaymentContext = {
         txHash,
         from: result.from || "unknown",
         amount: result.amount || "0",
-      } as X402PaymentContext;
+      };
+      (req as Request & { _x402Payment?: X402PaymentContext })._x402Payment = paymentCtx;
 
       next();
     })

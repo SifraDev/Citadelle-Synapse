@@ -21,6 +21,7 @@ import type {
   AgentIdentity,
   AgentLogEntry,
   AnalyzeDocumentsBody,
+  AnalyzeDocumentsInternalBody,
   BudgetStatus,
   ChargeDetail,
   ChargeRequest,
@@ -227,6 +228,101 @@ export const useAnalyzeDocuments = <
   TContext
 > => {
   return useMutation(getAnalyzeDocumentsMutationOptions(options));
+};
+
+/**
+ * @summary Upload and analyze PDF documents (internal dashboard route, no x402 paywall)
+ */
+export const getAnalyzeDocumentsInternalUrl = () => {
+  return `/api/analyze/internal`;
+};
+
+export const analyzeDocumentsInternal = async (
+  analyzeDocumentsInternalBody: AnalyzeDocumentsInternalBody,
+  options?: RequestInit,
+): Promise<string> => {
+  const formData = new FormData();
+  analyzeDocumentsInternalBody.files.forEach((value) =>
+    formData.append(`files`, value),
+  );
+  formData.append(`mode`, analyzeDocumentsInternalBody.mode);
+  if (analyzeDocumentsInternalBody.customQuery !== undefined) {
+    formData.append(`customQuery`, analyzeDocumentsInternalBody.customQuery);
+  }
+
+  return customFetch<string>(getAnalyzeDocumentsInternalUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getAnalyzeDocumentsInternalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeDocumentsInternal>>,
+    TError,
+    { data: BodyType<AnalyzeDocumentsInternalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof analyzeDocumentsInternal>>,
+  TError,
+  { data: BodyType<AnalyzeDocumentsInternalBody> },
+  TContext
+> => {
+  const mutationKey = ["analyzeDocumentsInternal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof analyzeDocumentsInternal>>,
+    { data: BodyType<AnalyzeDocumentsInternalBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return analyzeDocumentsInternal(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnalyzeDocumentsInternalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof analyzeDocumentsInternal>>
+>;
+export type AnalyzeDocumentsInternalMutationBody =
+  BodyType<AnalyzeDocumentsInternalBody>;
+export type AnalyzeDocumentsInternalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Upload and analyze PDF documents (internal dashboard route, no x402 paywall)
+ */
+export const useAnalyzeDocumentsInternal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyzeDocumentsInternal>>,
+    TError,
+    { data: BodyType<AnalyzeDocumentsInternalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof analyzeDocumentsInternal>>,
+  TError,
+  { data: BodyType<AnalyzeDocumentsInternalBody> },
+  TContext
+> => {
+  return useMutation(getAnalyzeDocumentsInternalMutationOptions(options));
 };
 
 /**

@@ -14,6 +14,8 @@ export * from "./agentLogEntry";
 export * from "./agentLogEntryType";
 export * from "./analyzeDocumentsBody";
 export * from "./analyzeDocumentsBodyMode";
+export * from "./analyzeDocumentsInternalBody";
+export * from "./analyzeDocumentsInternalBodyMode";
 export * from "./budgetStatus";
 export * from "./budgetStatusCategories";
 export * from "./budgetStatusOverall";

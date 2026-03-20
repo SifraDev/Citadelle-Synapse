@@ -454,6 +454,22 @@ export type AnalyzeDocumentsBody = {
   customQuery?: string;
 };
 
+export type AnalyzeDocumentsInternalBodyMode =
+  (typeof AnalyzeDocumentsInternalBodyMode)[keyof typeof AnalyzeDocumentsInternalBodyMode];
+
+export const AnalyzeDocumentsInternalBodyMode = {
+  summarize: "summarize",
+  extract_clauses: "extract_clauses",
+  flag_risks: "flag_risks",
+  custom: "custom",
+} as const;
+
+export type AnalyzeDocumentsInternalBody = {
+  files: Blob[];
+  mode: AnalyzeDocumentsInternalBodyMode;
+  customQuery?: string;
+};
+
 export type GetActivityLogsParams = {
   limit?: number;
 };

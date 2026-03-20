@@ -7,24 +7,12 @@ import { locusHealthCheck, startLocusMonitor, isLocusConfigured } from "./lib/lo
 import { isUniswapConfigured, getSwapConfig } from "./lib/uniswap";
 import { store } from "./lib/store";
 import { initERC8004, buildAgentJson, getAgentLog } from "./lib/erc8004";
-import { getInternalToken } from "./lib/x402";
 
 const app: Express = express();
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-app.use((_req, res, next) => {
-  const token = getInternalToken();
-  res.cookie("_x402_session", token, {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  });
-  next();
-});
 
 app.get("/.well-known/agent.json", (_req, res) => {
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "localhost";

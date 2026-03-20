@@ -74,10 +74,13 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - External callers to POST /api/analyze get 402 response with payment facilitation JSON
 - Callers include X-Payment-TxHash header to prove USDC payment
 - Middleware verifies on-chain USDC transfer to agent wallet before allowing access
-- Internal requests (same-origin dashboard, admin token, XHR) bypass paywall
+- Internal dashboard uses POST /api/analyze/internal (separate route, no x402 middleware)
+- Admin bearer token (ADMIN_API_TOKEN) bypasses x402 for programmatic internal access
 - GET /api/x402/info returns machine-readable pricing and payment instructions
 - Configurable via X402_BASE_PRICE (default 1.00 USDC) and X402_PRICE_PER_PAGE (default 0.50 USDC)
-- Verified tx hashes cached to avoid re-verification on subsequent requests
+- Payment tx hashes are single-use (anti-replay) — stored in consumedTxHashes Map
+- Per-page pricing enforced via X-Page-Count header
+- ERC-8004 receipt recorded AFTER successful x402-paid analysis (not at payment time)
 
 ### Compute Budget Tracker (artifacts/api-server/src/lib/budget.ts)
 - Tracks API call counts by category: venice, rpc, uniswap, locus, telegram
@@ -174,7 +177,8 @@ artifacts-monorepo/
 ## API Endpoints
 
 - `GET /api/healthz` — Health check
-- `POST /api/analyze` — Upload PDFs + stream analysis (multipart/form-data, SSE response)
+- `POST /api/analyze` — Upload PDFs + stream analysis (x402-gated for external callers, multipart/form-data, SSE response)
+- `POST /api/analyze/internal` — Upload PDFs + stream analysis (internal dashboard route, no x402)
 - `POST /api/draft` — Generate sanitized PDF draft from analysis text (PII redacted via Venice AI, zero-retention)
 - `GET /api/tasks` — List scheduled tasks
 - `POST /api/tasks` — Create scheduled task

@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import { createRequire } from "module";
 import { streamAnalysis } from "../lib/venice.js";
@@ -28,7 +28,7 @@ const upload = multer({
   },
 });
 
-router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, res): Promise<void> => {
+async function handleAnalysis(req: Request, res: Response): Promise<void> {
   const files = req.files as Express.Multer.File[] | undefined;
   if (!files || files.length === 0) {
     res.status(400).json({ error: "No PDF files provided" });
@@ -58,7 +58,7 @@ router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, r
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  const x402Payment = (req as any)._x402Payment as X402PaymentContext | undefined;
+  const x402Payment: X402PaymentContext | undefined = (req as Request & { _x402Payment?: X402PaymentContext })._x402Payment;
 
   try {
     sendSSE("status", { phase: "extracting", message: "Extracting text from PDFs..." });
@@ -141,6 +141,10 @@ router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, r
   }
 
   res.end();
-});
+}
+
+router.post("/analyze", x402Middleware, upload.array("files", 20), handleAnalysis);
+
+router.post("/analyze/internal", upload.array("files", 20), handleAnalysis);
 
 export default router;

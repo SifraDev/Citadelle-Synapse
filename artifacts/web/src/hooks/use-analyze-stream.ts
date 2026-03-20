@@ -54,7 +54,7 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
         formData.append("customQuery", customQuery);
       }
 
-      const response = await fetch("/api/analyze", {
+      const response = await fetch("/api/analyze/internal", {
         method: "POST",
         body: formData,
       });

@@ -25,6 +25,15 @@ export const AnalyzeDocumentsBody = zod.object({
 });
 
 /**
+ * @summary Upload and analyze PDF documents (internal dashboard route, no x402 paywall)
+ */
+export const AnalyzeDocumentsInternalBody = zod.object({
+  files: zod.array(zod.instanceof(File)),
+  mode: zod.enum(["summarize", "extract_clauses", "flag_risks", "custom"]),
+  customQuery: zod.string().optional(),
+});
+
+/**
  * @summary List scheduled tasks
  */
 export const ListTasksResponseItem = zod.object({
