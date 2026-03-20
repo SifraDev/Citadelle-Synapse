@@ -132,6 +132,22 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
           outcome: `x402-paid analysis delivered successfully`,
         }
       );
+    } else {
+      recordActionReceipt(
+        "payment",
+        `Analysis completed: ${mode} mode, ${files.length} documents (admin-authenticated)`,
+        undefined,
+        "0",
+        "USDC",
+        "admin",
+        {
+          trigger: `Admin-authenticated analysis request (${files.length} document(s), ${mode} mode)`,
+          plan: `Process ${files.length} document(s) in ${mode} mode via Venice AI`,
+          execution: `Analysis streamed successfully, ${fullResponse.length} chars produced`,
+          verification: `Request authenticated via admin API token (internal proxy)`,
+          outcome: `Analysis delivered to authenticated dashboard user`,
+        }
+      );
     }
 
     sendSSE("done", { message: "Stream complete" });

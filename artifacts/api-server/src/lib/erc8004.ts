@@ -298,6 +298,13 @@ export async function registerAgent(): Promise<{
       type: "registration",
       description: `Agent identity registered on Base mainnet IdentityRegistry`,
       txHash,
+      decision: {
+        trigger: "Agent startup — no existing ERC-8004 identity found on-chain",
+        plan: "Register agent identity on Base IdentityRegistry contract",
+        execution: `Called registerAgent() on ${IDENTITY_REGISTRY}, received agentId=${agentId}`,
+        verification: `Registration tx confirmed on-chain: ${txHash.slice(0, 16)}...`,
+        outcome: `Agent registered with ID ${agentId} — on-chain identity established`,
+      },
     });
 
     await sendMessage(
@@ -369,6 +376,13 @@ export async function submitReputationFeedback(
       type: "reputation",
       description: `Reputation feedback submitted: ${tag1}/${tag2} value=${value}`,
       txHash,
+      decision: {
+        trigger: `Autonomous action completed — submitting reputation feedback for ${tag1}/${tag2}`,
+        plan: `Record on-chain reputation attestation (value=${value}) via ReputationRegistry`,
+        execution: `submitFeedback() called with agentId=${_agentId}, value=${value}, tags=${tag1}/${tag2}`,
+        verification: `Reputation tx confirmed on-chain: ${txHash.slice(0, 16)}...`,
+        outcome: `Reputation feedback recorded — contributes to agent trust score`,
+      },
     });
 
     store.addActivity("system", `ERC-8004 reputation feedback submitted (tx: ${txHash.slice(0, 16)}...)`);

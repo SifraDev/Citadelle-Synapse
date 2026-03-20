@@ -221,7 +221,14 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
     txHash,
     verification.amount || "0",
     "USDC",
-    verification.from || "unknown"
+    verification.from || "unknown",
+    {
+      trigger: `Payment confirmation request for tx ${txHash.slice(0, 16)}...`,
+      plan: `Verify on-chain USDC transfer via ${verifyMethod}, match to pending charge, update status`,
+      execution: `Verified ${verification.amount} USDC from ${verification.from?.slice(0, 10)}... — charge matched and marked paid`,
+      verification: `Tx ${txHash.slice(0, 16)}... confirmed on Base mainnet with correct amount and recipient`,
+      outcome: `Payment recorded — client authorized for document analysis`,
+    }
   );
 
   res.json(payment);
@@ -341,7 +348,14 @@ router.post("/payments/delegation", async (req, res): Promise<void> => {
     undefined,
     dailyLimitUsdc.toString(),
     "USDC",
-    delegator
+    delegator,
+    {
+      trigger: `EIP-712 delegation signature received from ${delegator.slice(0, 10)}...`,
+      plan: `Validate signature, store delegation, enable autonomous swaps up to ${dailyLimitUsdc} USDC/day`,
+      execution: `Delegation stored — agent ${delegate.slice(0, 10)}... authorized by ${delegator.slice(0, 10)}...`,
+      verification: `Signature valid, daily limit ${dailyLimitUsdc} USDC, expires ${new Date(expiresAt * 1000).toISOString()}`,
+      outcome: `Agent can now execute autonomous Uniswap swaps within delegated limits`,
+    }
   );
 
   res.json(getDelegationStatus());
