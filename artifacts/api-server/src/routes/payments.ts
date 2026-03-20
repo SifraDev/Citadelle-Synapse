@@ -129,7 +129,27 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
   const isLocusCharge = !!charge?.locusWalletAddress;
   const expectedRecipient = isLocusCharge ? charge!.locusWalletAddress! : getAgentWallet();
 
-  const verification = await verifyTransaction(txHash, expectedRecipient);
+  let verification: { verified: boolean; from?: string; to?: string; amount?: string; error?: string };
+  let verifiedViaLocus = false;
+
+  if (isLocusCharge && isLocusConfigured()) {
+    const locusTxData = await getLocusTransactions(50);
+    const locusTx = locusTxData?.transactions.find((tx) => tx.tx_hash === txHash);
+    if (locusTx) {
+      verification = {
+        verified: true,
+        from: locusTx.from_address,
+        to: locusTx.to_address,
+        amount: locusTx.amount,
+      };
+      verifiedViaLocus = true;
+    } else {
+      verification = await verifyTransaction(txHash, expectedRecipient);
+    }
+  } else {
+    verification = await verifyTransaction(txHash, expectedRecipient);
+  }
+
   if (!verification.verified) {
     res.status(400).json({ error: verification.error || "Transaction verification failed" });
     return;
@@ -164,8 +184,9 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
     paymentMethod: isLocusCharge ? "locus" : "direct",
   });
 
+  const verifyMethod = verifiedViaLocus ? "Locus" : "on-chain";
   await sendMessage(
-    `💰 <b>Payment Verified On-Chain</b>\n\nAmount: ${verification.amount} USDC\nFrom: <code>${verification.from}</code>\nTx: <a href="https://basescan.org/tx/${txHash}">${txHash.slice(0, 16)}...</a>${isLocusCharge ? "\n💎 <i>Via Locus wallet</i>" : ""}`
+    `💰 <b>Payment Verified (${verifyMethod})</b>\n\nAmount: ${verification.amount} USDC\nFrom: <code>${verification.from}</code>\nTx: <a href="https://basescan.org/tx/${txHash}">${txHash.slice(0, 16)}...</a>${isLocusCharge ? "\n💎 <i>Via Locus wallet</i>" : ""}`
   );
 
   res.json(payment);
@@ -208,12 +229,9 @@ router.get("/payments/locus/transactions", async (req, res): Promise<void> => {
 router.post("/payments/locus/send", async (req, res): Promise<void> => {
   const adminToken = process.env.ADMIN_API_TOKEN;
   const authHeader = req.headers.authorization;
-  const isTelegramInternal = req.headers["x-internal-source"] === "telegram";
-  if (!isTelegramInternal) {
-    if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
-      res.status(403).json({ error: "Unauthorized: admin token required" });
-      return;
-    }
+  if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
+    res.status(403).json({ error: "Unauthorized: admin token required" });
+    return;
   }
 
   if (!isLocusConfigured()) {
