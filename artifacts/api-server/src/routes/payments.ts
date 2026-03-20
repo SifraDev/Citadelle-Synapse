@@ -212,6 +212,15 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
     `💰 <b>Payment Verified (${verifyMethod})</b>\n\nAmount: ${verification.amount} USDC\nFrom: <code>${verification.from}</code>\nTx: <a href="https://basescan.org/tx/${txHash}">${txHash.slice(0, 16)}...</a>${isLocusCharge ? "\n💎 <i>Via Locus wallet</i>" : ""}`
   );
 
+  recordActionReceipt(
+    "payment",
+    `Payment confirmed: ${verification.amount} USDC from ${verification.from} (${verifyMethod})`,
+    txHash,
+    verification.amount || "0",
+    "USDC",
+    verification.from || "unknown"
+  );
+
   res.json(payment);
 });
 

@@ -411,7 +411,7 @@ export function getIdentityStatus(): AgentIdentity {
     return _lastCheckResult;
   }
   return {
-    registered: _agentId !== null || (_lastCheckResult?.registered ?? false),
+    registered: _agentId !== null,
     agentId: _agentId ?? undefined,
     registryAddress: IDENTITY_REGISTRY,
     reputationRegistryAddress: REPUTATION_REGISTRY,
