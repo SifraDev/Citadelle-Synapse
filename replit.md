@@ -101,7 +101,8 @@ artifacts-monorepo/
 │   │       │   ├── crypto.ts    # Base chain interactions (viem)
 │   │       │   ├── locus.ts     # Locus payment API client
 │   │       │   ├── uniswap.ts   # Uniswap Trading API client
-│   │       │   └── delegation.ts # EIP-712 delegation system
+│   │       │   ├── delegation.ts # EIP-712 delegation system
+│   │       │   └── erc8004.ts   # ERC-8004 agent identity & reputation
 │   │       └── routes/
 │   │           ├── analysis.ts   # PDF upload + SSE streaming analysis
 │   │           ├── tasks.ts      # CRUD for scheduled tasks
@@ -166,6 +167,11 @@ artifacts-monorepo/
 - `GET /api/payments/delegation` — Get current delegation status + EIP-712 type info
 - `POST /api/payments/delegation` — Submit signed EIP-712 delegation
 - `POST /api/payments/swap` — Manually trigger USDC→ETH swap via Uniswap (auth-guarded, checks delegation)
+- `GET /api/payments/identity` — ERC-8004 agent identity status (registration, agentId, reputation score)
+- `POST /api/payments/identity/register` — Register agent on ERC-8004 IdentityRegistry (auth-guarded)
+- `GET /api/payments/agent-log` — Agent action log (swaps, payments, registrations)
+- `GET /.well-known/agent.json` — ERC-8004 agent manifest (served from app.ts)
+- `GET /agent_log.json` — ERC-8004 agent action log (served from app.ts)
 
 ## Root Scripts
 

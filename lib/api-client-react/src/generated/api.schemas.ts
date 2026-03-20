@@ -301,6 +301,8 @@ export interface AgentIdentity {
   reputationRegistryAddress: string;
   walletAddress: string;
   registrationTxHash?: string;
+  reputationScore?: number;
+  feedbackCount?: number;
 }
 
 export interface RegistrationResult {

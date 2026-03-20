@@ -924,6 +924,10 @@ components:
           type: string
         registrationTxHash:
           type: string
+        reputationScore:
+          type: integer
+        feedbackCount:
+          type: integer
       required:
         - registered
         - registryAddress

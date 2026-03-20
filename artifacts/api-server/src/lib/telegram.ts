@@ -176,11 +176,20 @@ export function initTelegramBot(): void {
             let idMsg = `🆔 <b>ERC-8004 Agent Identity</b>\n\n`;
             idMsg += `Status: ${identity.registered ? "✅ Registered" : "❌ Not registered"}\n`;
             if (identity.agentId !== undefined) {
-              idMsg += `Agent ID: ${identity.agentId}\n`;
+              idMsg += `Agent ID: #${identity.agentId}\n`;
             }
             idMsg += `Wallet: <code>${identity.walletAddress}</code>\n`;
             idMsg += `Registry: <a href="https://basescan.org/address/${identity.registryAddress}">${identity.registryAddress.slice(0, 16)}...</a>\n`;
-            idMsg += `Reputation: <a href="https://basescan.org/address/${identity.reputationRegistryAddress}">${identity.reputationRegistryAddress.slice(0, 16)}...</a>`;
+            idMsg += `Reputation: <a href="https://basescan.org/address/${identity.reputationRegistryAddress}">${identity.reputationRegistryAddress.slice(0, 16)}...</a>\n`;
+            if (identity.reputationScore !== undefined) {
+              idMsg += `\n📊 <b>Reputation Score:</b> ${identity.reputationScore}`;
+              if (identity.feedbackCount !== undefined) {
+                idMsg += ` (${identity.feedbackCount} feedback${identity.feedbackCount !== 1 ? "s" : ""})`;
+              }
+            }
+            if (identity.registrationTxHash) {
+              idMsg += `\nTx: <a href="https://basescan.org/tx/${identity.registrationTxHash}">${identity.registrationTxHash.slice(0, 16)}...</a>`;
+            }
             if (!identity.registered) {
               idMsg += `\n\nUse /identity register to register on-chain.`;
             }

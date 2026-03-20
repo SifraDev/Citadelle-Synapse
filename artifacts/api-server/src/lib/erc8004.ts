@@ -23,6 +23,8 @@ const IDENTITY_ABI = parseAbi([
 
 const REPUTATION_ABI = parseAbi([
   "function giveFeedback(uint256 agentId, int256 value, uint8 valueDecimals, bytes32 tag1, bytes32 tag2, string endpoint, string fileURI, bytes32 fileHash)",
+  "function getScore(uint256 agentId) view returns (int256)",
+  "function getFeedbackCount(uint256 agentId) view returns (uint256)",
 ]);
 
 const transport = http("https://mainnet.base.org");
@@ -35,6 +37,8 @@ export interface AgentIdentity {
   reputationRegistryAddress: string;
   walletAddress: string;
   registrationTxHash?: string;
+  reputationScore?: number;
+  feedbackCount?: number;
 }
 
 export interface AgentLogEntry {
@@ -117,6 +121,35 @@ async function _doCheckRegistration(): Promise<AgentIdentity> {
       }
     }
 
+    if (_agentId !== null) {
+      try {
+        const [score, count] = await Promise.all([
+          rpcWithTimeout(
+            publicClient.readContract({
+              address: REPUTATION_REGISTRY,
+              abi: REPUTATION_ABI,
+              functionName: "getScore",
+              args: [BigInt(_agentId)],
+            }),
+            5000
+          ) as Promise<bigint>,
+          rpcWithTimeout(
+            publicClient.readContract({
+              address: REPUTATION_REGISTRY,
+              abi: REPUTATION_ABI,
+              functionName: "getFeedbackCount",
+              args: [BigInt(_agentId)],
+            }),
+            5000
+          ) as Promise<bigint>,
+        ]);
+        result.reputationScore = Number(score);
+        result.feedbackCount = Number(count);
+      } catch {
+        // reputation query failed, non-blocking
+      }
+    }
+
     if (_registrationTxHash) {
       result.registrationTxHash = _registrationTxHash;
     }
@@ -190,8 +223,20 @@ export async function registerAgent(): Promise<{
       return { success: false, error: "Registration transaction reverted" };
     }
 
-    const newCheck = await checkRegistration();
-    const agentId = newCheck.agentId;
+    let agentId: number | undefined;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() === IDENTITY_REGISTRY.toLowerCase() && log.topics.length >= 4) {
+        const tokenIdHex = log.topics[3];
+        if (tokenIdHex) {
+          _agentId = Number(BigInt(tokenIdHex));
+          agentId = _agentId;
+          break;
+        }
+      }
+    }
+
+    _lastCheckTime = 0;
+    _lastCheckResult = null;
 
     store.addActivity("system", `ERC-8004 Agent registered on-chain (ID: ${agentId}, tx: ${txHash.slice(0, 16)}...)`);
     addAgentLogEntry({
@@ -353,9 +398,15 @@ export function buildAgentJson(domain: string) {
   };
 }
 
-export function getIdentityStatus(): AgentIdentity & { agentId?: number } {
+export function getIdentityStatus(): AgentIdentity {
+  if (_lastCheckResult) {
+    if (_agentId !== null) {
+      _lastCheckResult.agentId = _agentId;
+    }
+    return _lastCheckResult;
+  }
   return {
-    registered: _agentId !== null,
+    registered: _agentId !== null || (_lastCheckResult?.registered ?? false),
     agentId: _agentId ?? undefined,
     registryAddress: IDENTITY_REGISTRY,
     reputationRegistryAddress: REPUTATION_REGISTRY,
@@ -432,8 +483,20 @@ export async function initERC8004(): Promise<void> {
       deepScanForAgentId();
     }
   } else {
-    console.log("[ERC-8004] Agent not yet registered on IdentityRegistry");
-    store.addActivity("system", "ERC-8004: Agent not registered — use /identity register or dashboard to register");
+    console.log("[ERC-8004] Agent not registered — attempting auto-registration...");
+    const account = getAccount();
+    if (account) {
+      const regResult = await registerAgent();
+      if (regResult.success) {
+        console.log(`[ERC-8004] Auto-registered agent with ID: ${regResult.agentId}`);
+      } else {
+        console.log(`[ERC-8004] Auto-registration failed: ${regResult.error}`);
+        store.addActivity("system", `ERC-8004: Auto-registration failed — ${regResult.error}`);
+      }
+    } else {
+      console.log("[ERC-8004] No PRIVATE_KEY — cannot auto-register");
+      store.addActivity("system", "ERC-8004: Agent not registered — PRIVATE_KEY required for registration");
+    }
   }
 }
 

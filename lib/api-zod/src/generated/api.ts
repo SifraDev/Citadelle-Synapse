@@ -343,6 +343,8 @@ export const GetAgentIdentityResponse = zod.object({
   reputationRegistryAddress: zod.string(),
   walletAddress: zod.string(),
   registrationTxHash: zod.string().optional(),
+  reputationScore: zod.number().optional(),
+  feedbackCount: zod.number().optional(),
 });
 
 /**

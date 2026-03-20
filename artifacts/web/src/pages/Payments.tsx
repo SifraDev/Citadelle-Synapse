@@ -521,6 +521,18 @@ export default function Payments() {
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
+            {identity.reputationScore !== undefined && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-0.5">Reputation Score</p>
+                <p className="text-foreground font-semibold text-lg">{identity.reputationScore}</p>
+              </div>
+            )}
+            {identity.feedbackCount !== undefined && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-0.5">Feedbacks</p>
+                <p className="text-foreground font-semibold text-lg">{identity.feedbackCount}</p>
+              </div>
+            )}
           </div>
           {identity.registrationTxHash && (
             <div className="mt-3 pt-3 border-t border-border">
