@@ -7,7 +7,6 @@ import { locusHealthCheck, startLocusMonitor, isLocusConfigured } from "./lib/lo
 import { isUniswapConfigured, getSwapConfig } from "./lib/uniswap";
 import { store } from "./lib/store";
 import { initERC8004, buildAgentJson, getAgentLog } from "./lib/erc8004";
-
 const app: Express = express();
 
 app.use(cors());

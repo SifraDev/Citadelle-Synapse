@@ -61,7 +61,7 @@ function buildPaymentRequiredResponse() {
   };
 }
 
-function isAdminRequest(req: Request): boolean {
+function isInternalRequest(req: Request): boolean {
   const adminToken = process.env.ADMIN_API_TOKEN;
   if (!adminToken) return false;
   const authHeader = req.headers.authorization;
@@ -75,7 +75,7 @@ export interface X402PaymentContext {
 }
 
 export function x402Middleware(req: Request, res: Response, next: NextFunction): void {
-  if (isAdminRequest(req)) {
+  if (isInternalRequest(req)) {
     next();
     return;
   }

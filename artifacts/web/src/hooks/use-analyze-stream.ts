@@ -54,16 +54,13 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
         formData.append("customQuery", customQuery);
       }
 
-      const headers: Record<string, string> = {};
-      const adminToken = import.meta.env.VITE_ADMIN_API_TOKEN;
-      if (adminToken) {
-        headers["Authorization"] = `Bearer ${adminToken}`;
-      }
+      const analyzeUrl = typeof __ANALYZE_PROXY_PATH__ !== "undefined"
+        ? __ANALYZE_PROXY_PATH__
+        : "/api/analyze";
 
-      const response = await fetch("/api/analyze", {
+      const response = await fetch(analyzeUrl, {
         method: "POST",
         body: formData,
-        headers,
       });
 
       if (!response.ok) {

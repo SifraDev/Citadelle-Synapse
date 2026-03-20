@@ -74,8 +74,9 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - External callers to POST /api/analyze get 402 response with payment facilitation JSON
 - Callers include X-Payment-TxHash header to prove USDC payment
 - Middleware verifies on-chain USDC transfer to agent wallet before allowing access
-- Dashboard bypasses x402 via ADMIN_API_TOKEN bearer auth (token injected via VITE_ADMIN_API_TOKEN env var)
-- Only ADMIN_API_TOKEN bearer auth bypasses x402 — no spoofable headers (Origin, Referer, XHR) are trusted
+- Dashboard bypasses x402 via Vite dev server proxy with cryptographic nonce: frontend calls /_p/{random_nonce}/analyze → Vite injects ADMIN_API_TOKEN header server-side → Express receives admin bearer token and bypasses x402. Nonce regenerated on each server restart. Token never reaches the browser.
+- ADMIN_API_TOKEN bearer auth is the only bypass mechanism at the Express layer (server-to-server only)
+- Note: full user authentication (login/sessions) is required for production-grade paywall enforcement; this demo relies on the nonce proxy for operator dashboard access
 - GET /api/x402/info returns machine-readable pricing and payment instructions
 - Configurable via X402_BASE_PRICE (default 1.00 USDC) and X402_PRICE_PER_PAGE (default 0.50 USDC)
 - Payment tx hashes are single-use (anti-replay) — stored in consumedTxHashes Map
@@ -172,8 +173,7 @@ artifacts-monorepo/
 - `UNISWAP_API_KEY` — Uniswap Trading API key
 - `LOCUS_API_KEY` — Locus payment API key
 - `LOCUS_PRIVATE_KEY` — Locus private key
-- `ADMIN_API_TOKEN` — Admin token for auth-guarded endpoints and x402 bypass
-- `VITE_ADMIN_API_TOKEN` — Same admin token exposed to Vite frontend (for dashboard x402 bypass)
+- `ADMIN_API_TOKEN` — Admin token for auth-guarded endpoints and x402 bypass (server-to-server only)
 
 ## API Endpoints
 

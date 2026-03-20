@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import crypto from "crypto";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
@@ -26,8 +27,14 @@ if (!basePath) {
   );
 }
 
+const proxyNonce = crypto.randomBytes(16).toString("hex");
+const proxyPath = `/_p/${proxyNonce}/analyze`;
+
 export default defineConfig({
   base: basePath,
+  define: {
+    __ANALYZE_PROXY_PATH__: JSON.stringify(proxyPath),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -62,6 +69,15 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+    proxy: {
+      [proxyPath]: {
+        target: "http://localhost:8080",
+        rewrite: () => "/api/analyze",
+        headers: {
+          Authorization: `Bearer ${process.env.ADMIN_API_TOKEN || ""}`,
+        },
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
