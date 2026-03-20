@@ -48,8 +48,25 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - Locus wallet: dynamically fetched via `GET /api/pay/balance` (currently 0xa1dea7...713c)
 - Functions: getLocusBalance (10s cache), getLocusTransactions, locusSendPayment, locusHealthCheck, getLocusWalletAddress, startLocusMonitor
 - Monitor: 20s polling via `GET /api/pay/transactions`, auto-matches incoming USDC against pending charges
-- All charges default to Locus wallet as payment target; payments carry `paymentMethod: "direct" | "locus"`
-- `/payments/locus/send` is auth-guarded (requires ADMIN_API_TOKEN or internal Telegram source header)
+- On confirmed incoming payment: if Uniswap configured, calculates 10% commission, sends via Locus to agent EOA, triggers autonomous USDC→ETH swap
+- All charges default to Locus wallet as payment target; payments carry `paymentMethod: "direct" | "locus" | "swap"`
+- `/payments/locus/send` is auth-guarded (requires ADMIN_API_TOKEN)
+
+### Uniswap Trading API (artifacts/api-server/src/lib/uniswap.ts)
+- Uniswap Trading API: `https://trade-api.gateway.uniswap.org/v1` (UNISWAP_API_KEY in secrets)
+- Swaps USDC→native ETH on Base mainnet via Universal Router
+- Functions: getSwapQuote, ensurePermit2Approval, executeSwap, performAutonomousSwap, calculateCommission
+- Permit2 address: 0x000000000022D473030F116dDEE9F6B43aC78BA3
+- Commission rate: 10% of incoming payments, minimum threshold: 0.50 USDC
+- All swaps check delegation before executing; denied swaps logged as "Permission Required"
+- Supports both order-based and direct-tx execution paths
+
+### MetaMask Delegation (ERC-7715) (artifacts/api-server/src/lib/delegation.ts)
+- EIP-712 typed data delegation: owner signs permission for agent to swap up to dailyLimitUsdc/day
+- Domain: "Venice AI Legal Platform", version "1", chainId 8453 (Base)
+- In-memory storage (zero-retention — owner must re-sign after server restart)
+- Verification: checks signature via ecrecover, expiry, and daily cumulative usage
+- Graceful denial: logs "Permission Required", notifies via Telegram, does NOT error
 
 ### Telegram Bot (artifacts/api-server/src/lib/telegram.ts)
 - Runs in the same Express process (not a separate service)
@@ -58,6 +75,9 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - CEO vs client routing based on TELEGRAM_CHAT_ID comparison
 - Supports /preset rules for auto-pricing, client quote flow, and payment buttons
 - Supports /charge command for CEO to create USDC charges via Telegram
+- Supports /gas command — shows agent ETH balance + delegation status
+- Supports /swap <amount> command — CEO-only, triggers USDC→ETH swap (checks delegation)
+- Supports /send <address> <amount> <memo> — send USDC via Locus
 
 ### Venice AI (artifacts/api-server/src/lib/venice.ts)
 - Uses OpenAI SDK pointed at `https://api.venice.ai/api/v1`
@@ -77,7 +97,11 @@ artifacts-monorepo/
 │   │       ├── lib/
 │   │       │   ├── store.ts      # In-memory data stores
 │   │       │   ├── venice.ts     # Venice AI client
-│   │       │   └── telegram.ts   # Telegram bot (in-process)
+│   │       │   ├── telegram.ts   # Telegram bot (in-process)
+│   │       │   ├── crypto.ts    # Base chain interactions (viem)
+│   │       │   ├── locus.ts     # Locus payment API client
+│   │       │   ├── uniswap.ts   # Uniswap Trading API client
+│   │       │   └── delegation.ts # EIP-712 delegation system
 │   │       └── routes/
 │   │           ├── analysis.ts   # PDF upload + SSE streaming analysis
 │   │           ├── tasks.ts      # CRUD for scheduled tasks
@@ -112,6 +136,11 @@ artifacts-monorepo/
 - `VENICE_API_KEY` — Venice AI API key
 - `TELEGRAM_BOT_TOKEN` — Telegram bot token
 - `TELEGRAM_CHAT_ID` — Default Telegram chat ID for alerts
+- `PRIVATE_KEY` — Agent EOA wallet private key (for signing Permit2/Uniswap txs)
+- `UNISWAP_API_KEY` — Uniswap Trading API key
+- `LOCUS_API_KEY` — Locus payment API key
+- `LOCUS_PRIVATE_KEY` — Locus private key
+- `ADMIN_API_TOKEN` — Admin token for auth-guarded endpoints
 
 ## API Endpoints
 
@@ -134,6 +163,9 @@ artifacts-monorepo/
 - `DELETE /api/payments/charge/:id` — Cancel/expire a pending charge
 - `GET /api/payments/locus/transactions` — Locus transaction history
 - `POST /api/payments/locus/send` — Send USDC via Locus (auth-guarded)
+- `GET /api/payments/delegation` — Get current delegation status + EIP-712 type info
+- `POST /api/payments/delegation` — Submit signed EIP-712 delegation
+- `POST /api/payments/swap` — Manually trigger USDC→ETH swap via Uniswap (auth-guarded, checks delegation)
 
 ## Root Scripts
 

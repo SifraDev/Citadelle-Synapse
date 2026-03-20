@@ -1,5 +1,13 @@
 import { useState, useCallback } from "react";
-import { useGetPayments, useGetWalletInfo, useListCharges, useCreateCharge, useConfirmPayment } from "@workspace/api-client-react";
+import {
+  useGetPayments,
+  useGetWalletInfo,
+  useListCharges,
+  useCreateCharge,
+  useConfirmPayment,
+  useGetDelegation,
+  useSubmitDelegation,
+} from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { truncateAddress } from "@/lib/utils";
 import {
@@ -17,6 +25,9 @@ import {
   RefreshCw,
   Diamond,
   Shield,
+  Fuel,
+  KeyRound,
+  Zap,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -46,8 +57,10 @@ export default function Payments() {
   const { data: payments, isLoading: loadingPayments, refetch: refetchPayments } = useGetPayments({ limit: 50 }, { query: { refetchInterval: 10000 } });
   const { data: walletInfo, isLoading: loadingWallet, refetch: refetchWallet } = useGetWalletInfo({ query: { refetchInterval: 30000 } });
   const { data: charges, refetch: refetchCharges } = useListCharges({ query: { refetchInterval: 10000 } });
+  const { data: delegation, refetch: refetchDelegation } = useGetDelegation({ query: { refetchInterval: 15000 } });
   const { mutateAsync: createCharge, isPending: creatingCharge } = useCreateCharge();
   const { mutateAsync: confirmPayment } = useConfirmPayment();
+  const { mutateAsync: submitDelegation } = useSubmitDelegation();
 
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeLabel, setChargeLabel] = useState("");
@@ -56,9 +69,13 @@ export default function Payments() {
   const [payingChargeId, setPayingChargeId] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [delegationLoading, setDelegationLoading] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState("50");
+  const [expiryHours, setExpiryHours] = useState("24");
 
   const locusData = walletInfo?.locus;
   const locusConnected = locusData?.connected === true;
+  const uniswapConfigured = (walletInfo as any)?.uniswapConfigured === true;
 
   const connectWallet = useCallback(async () => {
     if (!window.ethereum) {
@@ -159,6 +176,80 @@ export default function Payments() {
     refetchCharges();
   };
 
+  const handleGrantDelegation = async () => {
+    if (!window.ethereum || !connectedAddress) {
+      alert("Connect your wallet first to sign a delegation.");
+      return;
+    }
+    if (!walletInfo?.address) {
+      alert("Wallet info not loaded yet.");
+      return;
+    }
+
+    setDelegationLoading(true);
+    try {
+      const eip712Info = (delegation as any)?.eip712;
+      if (!eip712Info) {
+        alert("Could not load delegation type info from server.");
+        return;
+      }
+
+      const limitUsdc = parseFloat(dailyLimit);
+      const hoursVal = parseFloat(expiryHours);
+      if (isNaN(limitUsdc) || limitUsdc <= 0 || isNaN(hoursVal) || hoursVal <= 0) {
+        alert("Please enter valid daily limit and expiry hours.");
+        return;
+      }
+
+      const expiresAt = Math.floor(Date.now() / 1000) + Math.floor(hoursVal * 3600);
+      const limitRaw = "0x" + BigInt(Math.round(limitUsdc * 1e6)).toString(16);
+      const expiresAtHex = "0x" + BigInt(expiresAt).toString(16);
+
+      const msgParams = JSON.stringify({
+        types: {
+          EIP712Domain: [
+            { name: "name", type: "string" },
+            { name: "version", type: "string" },
+            { name: "chainId", type: "uint256" },
+          ],
+          Delegation: eip712Info.types.Delegation,
+        },
+        primaryType: "Delegation",
+        domain: eip712Info.domain,
+        message: {
+          delegate: walletInfo.address,
+          allowedContract: eip712Info.allowedContract,
+          dailyLimitUsdc: limitRaw,
+          expiresAt: expiresAtHex,
+        },
+      });
+
+      const signature = await window.ethereum.request({
+        method: "eth_signTypedData_v4",
+        params: [connectedAddress, msgParams],
+      }) as string;
+
+      await submitDelegation({
+        data: {
+          delegator: connectedAddress,
+          delegate: walletInfo.address,
+          allowedContract: eip712Info.allowedContract,
+          dailyLimitUsdc: limitUsdc,
+          expiresAt,
+          signature,
+        },
+      });
+
+      refetchDelegation();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Delegation signing failed";
+      console.error("Delegation error:", msg);
+      alert(`Delegation failed: ${msg}`);
+    } finally {
+      setDelegationLoading(false);
+    }
+  };
+
   const copyAddress = (addr: string) => {
     navigator.clipboard.writeText(addr);
     setCopied(true);
@@ -169,6 +260,7 @@ export default function Payments() {
   const confirmedTotal = payments?.reduce((acc, p) => p.status === "confirmed" ? acc + parseFloat(p.amount) : acc, 0) || 0;
   const confirmedCount = payments?.filter(p => p.status === "confirmed").length || 0;
   const pendingCount = pendingCharges.length;
+  const ethBalance = (walletInfo as any)?.ethBalance || "0";
 
   return (
     <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500 max-w-6xl mx-auto">
@@ -181,6 +273,12 @@ export default function Payments() {
           <p className="text-muted-foreground mt-1">Real USDC payments on Base network via MetaMask & Locus.</p>
         </div>
         <div className="flex items-center gap-3">
+          {uniswapConfigured && (
+            <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2.5 py-1 rounded-lg text-xs font-medium">
+              <Zap className="w-3 h-3" />
+              Uniswap
+            </div>
+          )}
           {locusConnected && (
             <div className="flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2.5 py-1 rounded-lg text-xs font-medium">
               <Diamond className="w-3 h-3" />
@@ -205,7 +303,26 @@ export default function Payments() {
         </div>
       </header>
 
-      <div className={`grid grid-cols-1 gap-4 ${locusConnected ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+        {uniswapConfigured && (
+          <div className="bg-card rounded-xl border border-blue-500/20 p-5 shadow-lg">
+            <p className="text-sm text-blue-400 font-medium mb-1 flex items-center gap-1.5">
+              <Fuel className="w-3.5 h-3.5" />
+              Gas Treasury
+            </p>
+            {loadingWallet ? (
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div>
+                <p className="text-2xl font-display text-foreground">
+                  {parseFloat(ethBalance).toFixed(6)}
+                  <span className="text-sm text-blue-400 ml-2">ETH</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Agent gas balance</p>
+              </div>
+            )}
+          </div>
+        )}
         {locusConnected && (
           <div className="bg-card rounded-xl border border-violet-500/20 p-5 shadow-lg">
             <p className="text-sm text-violet-400 font-medium mb-1 flex items-center gap-1.5">
@@ -249,13 +366,6 @@ export default function Payments() {
           )}
         </div>
         <div className="bg-card rounded-xl border border-border p-5 shadow-lg">
-          <p className="text-sm text-muted-foreground font-medium mb-1">USDC Balance</p>
-          <p className="text-2xl font-display text-foreground">
-            {loadingWallet ? "..." : parseFloat(walletInfo?.usdcBalance || "0").toFixed(2)}
-            <span className="text-sm text-primary ml-2">USDC</span>
-          </p>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-5 shadow-lg">
           <p className="text-sm text-muted-foreground font-medium mb-1">Total Received</p>
           <p className="text-2xl font-display text-foreground">
             {confirmedTotal.toFixed(2)}
@@ -269,6 +379,86 @@ export default function Payments() {
           <p className="text-xs text-muted-foreground mt-1">awaiting payment</p>
         </div>
       </div>
+
+      {uniswapConfigured && (
+        <div className="bg-card rounded-xl border border-blue-500/20 p-5 shadow-lg">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-blue-400" />
+            Swap Delegation (ERC-7715)
+          </h2>
+          {delegation?.active ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-500 font-medium text-sm">Active Delegation</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Delegator</p>
+                  <p className="font-mono text-foreground text-xs">{truncateAddress(delegation.delegator || "")}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Daily Limit</p>
+                  <p className="text-foreground font-semibold">{delegation.dailyLimitUsdc} USDC</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Used Today</p>
+                  <p className="text-foreground font-semibold">{(delegation.dailyUsedUsdc || 0).toFixed(2)} USDC</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-0.5">Expires</p>
+                  <p className="text-foreground text-xs">{delegation.expiresAt ? format(new Date(delegation.expiresAt), "MMM d, HH:mm") : "N/A"}</p>
+                </div>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, ((delegation.dailyUsedUsdc || 0) / (delegation.dailyLimitUsdc || 1)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(delegation.dailyRemainingUsdc || 0).toFixed(2)} USDC remaining today
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {delegation?.reason || "No delegation signed. Grant permission for the agent to autonomously swap USDC to ETH."}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Daily Limit (USDC)</label>
+                  <input
+                    type="number"
+                    value={dailyLimit}
+                    onChange={(e) => setDailyLimit(e.target.value)}
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Expiry (hours)</label>
+                  <input
+                    type="number"
+                    value={expiryHours}
+                    onChange={(e) => setExpiryHours(e.target.value)}
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleGrantDelegation}
+                disabled={delegationLoading || !connectedAddress}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {delegationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                {connectedAddress ? "Sign Delegation via MetaMask" : "Connect Wallet First"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-card rounded-xl border border-border p-5 shadow-lg">
@@ -405,6 +595,7 @@ export default function Payments() {
               <tbody className="divide-y divide-border">
                 {payments.map((payment) => {
                   const isLocus = payment.network?.includes("Locus");
+                  const isSwap = payment.network?.includes("Swap") || payment.paymentMethod === "swap";
                   return (
                     <tr key={payment.id} className="hover:bg-secondary/20 transition-colors">
                       <td className="px-6 py-4 text-muted-foreground font-mono text-xs">
@@ -427,6 +618,7 @@ export default function Payments() {
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{payment.network || "Base"}</span>
                           {isLocus && <Diamond className="w-2.5 h-2.5 text-violet-400" />}
+                          {isSwap && <Zap className="w-2.5 h-2.5 text-blue-400" />}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -435,14 +627,14 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="bg-secondary px-2 py-0.5 rounded text-foreground font-mono text-xs">
-                          {truncateAddress(payment.to || "")}
+                        <span className={`px-2 py-0.5 rounded font-mono text-xs ${isSwap ? "bg-blue-500/10 text-blue-400" : "bg-secondary text-foreground"}`}>
+                          {isSwap ? "Uniswap" : truncateAddress(payment.to || "")}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
                           {payment.amount}
-                          <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded uppercase">
+                          <span className={`text-xs border px-1.5 py-0.5 rounded uppercase ${isSwap ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-primary/10 text-primary border-primary/20"}`}>
                             {payment.token}
                           </span>
                         </div>

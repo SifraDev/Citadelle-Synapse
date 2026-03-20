@@ -385,6 +385,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /payments/delegation:
+    get:
+      operationId: getDelegation
+      tags: [payments]
+      summary: Get current delegation status and EIP-712 type info
+      responses:
+        "200":
+          description: Delegation status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelegationInfo"
+    post:
+      operationId: submitDelegation
+      tags: [payments]
+      summary: Submit a signed EIP-712 delegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitDelegationInput"
+      responses:
+        "200":
+          description: Delegation stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelegationStatus"
+        "400":
+          description: Invalid delegation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /payments/swap:
+    post:
+      operationId: executeSwap
+      tags: [payments]
+      summary: Manually trigger a USDC to ETH swap via Uniswap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwapInput"
+      responses:
+        "200":
+          description: Swap executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwapResult"
+        "400":
+          description: Swap failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Delegation denied or unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Uniswap not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -568,7 +639,7 @@ components:
           type: string
         paymentMethod:
           type: string
-          enum: [direct, locus]
+          enum: [direct, locus, swap]
       required:
         - id
         - amount
@@ -582,12 +653,16 @@ components:
           type: string
         usdcBalance:
           type: string
+        ethBalance:
+          type: string
         usdcContract:
           type: string
         network:
           type: string
         chainId:
           type: integer
+        uniswapConfigured:
+          type: boolean
         locus:
           $ref: "#/components/schemas/LocusStatus"
       required:
@@ -687,3 +762,109 @@ components:
           description: Optional charge ID to link this payment to
       required:
         - txHash
+    DelegationStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        delegator:
+          type: string
+        delegate:
+          type: string
+        dailyLimitUsdc:
+          type: number
+        dailyUsedUsdc:
+          type: number
+        dailyRemainingUsdc:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+        signedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+      required:
+        - active
+    DelegationInfo:
+      type: object
+      properties:
+        active:
+          type: boolean
+        delegator:
+          type: string
+        delegate:
+          type: string
+        dailyLimitUsdc:
+          type: number
+        dailyUsedUsdc:
+          type: number
+        dailyRemainingUsdc:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+        signedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        eip712:
+          type: object
+          additionalProperties: true
+      required:
+        - active
+    SubmitDelegationInput:
+      type: object
+      properties:
+        delegator:
+          type: string
+        delegate:
+          type: string
+        allowedContract:
+          type: string
+        dailyLimitUsdc:
+          type: number
+        expiresAt:
+          type: number
+        signature:
+          type: string
+      required:
+        - delegator
+        - delegate
+        - allowedContract
+        - dailyLimitUsdc
+        - expiresAt
+        - signature
+    SwapInput:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: USDC amount to swap to ETH
+      required:
+        - amount
+    SwapResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        txHash:
+          type: string
+        amountIn:
+          type: string
+        amountOut:
+          type: string
+        error:
+          type: string
+        delegationDenied:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - success

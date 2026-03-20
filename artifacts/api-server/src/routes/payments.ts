@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { store } from "../lib/store.js";
-import { getUsdcBalance, getAgentWallet, getUsdcAddress, verifyTransaction } from "../lib/crypto.js";
+import { getUsdcBalance, getEthBalance, getAgentWallet, getUsdcAddress, verifyTransaction } from "../lib/crypto.js";
 import { sendMessage } from "../lib/telegram.js";
 import {
   isLocusConfigured,
@@ -9,6 +9,16 @@ import {
   getLocusTransactions,
   locusSendPayment,
 } from "../lib/locus.js";
+import {
+  storeDelegation,
+  getDelegationStatus,
+  getEIP712DelegationTypes,
+} from "../lib/delegation.js";
+import {
+  isUniswapConfigured,
+  performAutonomousSwap,
+  getSwapConfig,
+} from "../lib/uniswap.js";
 
 const router: IRouter = Router();
 
@@ -20,17 +30,20 @@ router.get("/payments", async (req, res): Promise<void> => {
 
 router.get("/payments/wallet", async (_req, res): Promise<void> => {
   try {
-    const [onChainBalance, locusInfo] = await Promise.all([
+    const [onChainBalance, ethBalance, locusInfo] = await Promise.all([
       getUsdcBalance(),
+      getEthBalance(),
       isLocusConfigured() ? getLocusBalance() : null,
     ]);
 
     res.json({
       address: getAgentWallet(),
       usdcBalance: onChainBalance,
+      ethBalance,
       usdcContract: getUsdcAddress(),
       network: "Base",
       chainId: 8453,
+      uniswapConfigured: isUniswapConfigured(),
       locus: locusInfo
         ? {
             connected: true,
@@ -275,6 +288,62 @@ router.post("/payments/locus/send", async (req, res): Promise<void> => {
   await sendMessage(
     `💸 <b>USDC Sent via Locus</b>\n\nAmount: ${amount} USDC\nTo: <code>${to_address}</code>\nMemo: ${memo}\nTx: <a href="https://basescan.org/tx/${result.tx_hash}">${result.tx_hash.slice(0, 16)}...</a>`
   );
+
+  res.json(result);
+});
+
+router.get("/payments/delegation", async (_req, res): Promise<void> => {
+  const status = getDelegationStatus();
+  const types = getEIP712DelegationTypes();
+  res.json({ ...status, eip712: types });
+});
+
+router.post("/payments/delegation", async (req, res): Promise<void> => {
+  const { delegator, delegate, allowedContract, dailyLimitUsdc, expiresAt, signature } = req.body;
+
+  if (!delegator || !delegate || !allowedContract || !dailyLimitUsdc || !expiresAt || !signature) {
+    res.status(400).json({ error: "All delegation fields are required" });
+    return;
+  }
+
+  const result = await storeDelegation(delegator, delegate, allowedContract, dailyLimitUsdc, expiresAt, signature);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  await sendMessage(
+    `🔑 <b>Delegation Granted</b>\n\nDelegator: <code>${delegator.slice(0, 10)}...</code>\nAgent: <code>${delegate.slice(0, 10)}...</code>\nDaily Limit: ${dailyLimitUsdc} USDC\nExpires: ${new Date(expiresAt * 1000).toISOString()}`
+  );
+
+  res.json(getDelegationStatus());
+});
+
+router.post("/payments/swap", async (req, res): Promise<void> => {
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  const authHeader = req.headers.authorization;
+  if (!adminToken || !authHeader || authHeader !== `Bearer ${adminToken}`) {
+    res.status(403).json({ error: "Unauthorized: admin token required" });
+    return;
+  }
+
+  if (!isUniswapConfigured()) {
+    res.status(503).json({ error: "Uniswap not configured (missing UNISWAP_API_KEY or PRIVATE_KEY)" });
+    return;
+  }
+
+  const { amount } = req.body;
+  if (!amount || typeof amount !== "number" || amount <= 0) {
+    res.status(400).json({ error: "amount must be a positive number (USDC)" });
+    return;
+  }
+
+  const result = await performAutonomousSwap(amount);
+  if (!result.success) {
+    const status = result.delegationDenied ? 403 : 400;
+    res.status(status).json({ error: result.error || result.reason, delegationDenied: result.delegationDenied });
+    return;
+  }
 
   res.json(result);
 });

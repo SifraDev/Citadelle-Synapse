@@ -1,7 +1,9 @@
 import TelegramBot from "node-telegram-bot-api";
 import { store } from "./store.js";
-import { getAgentWallet } from "./crypto.js";
+import { getAgentWallet, getEthBalance } from "./crypto.js";
 import { isLocusConfigured, getLocusBalance, getLocusWalletAddress } from "./locus.js";
+import { isUniswapConfigured, performAutonomousSwap } from "./uniswap.js";
+import { getDelegationStatus } from "./delegation.js";
 
 function getPaymentUrl(chargeId: string): string {
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
@@ -140,6 +142,43 @@ export function initTelegramBot(): void {
                 logOutgoing(chatId, ruleMsg);
                 return;
             }
+        }
+
+        if (text === "/gas") {
+          const ethBal = await getEthBalance();
+          const delegationInfo = getDelegationStatus();
+          let gasMsg = `⛽ <b>Gas Treasury</b>\n\nETH Balance: ${parseFloat(ethBal).toFixed(6)} ETH\nWallet: <code>${getAgentWallet()}</code>\nNetwork: Base`;
+          if (delegationInfo.active) {
+            gasMsg += `\n\n🔑 Delegation: Active\nDaily: ${delegationInfo.dailyUsedUsdc?.toFixed(2)}/${delegationInfo.dailyLimitUsdc} USDC`;
+          } else {
+            gasMsg += `\n\n🔒 Delegation: ${delegationInfo.reason || "None"}`;
+          }
+          bot?.sendMessage(Number(chatId), gasMsg, { parse_mode: "HTML" });
+          logOutgoing(chatId, gasMsg);
+          return;
+        }
+
+        if (text.startsWith("/swap ")) {
+          const swapAmount = Number(text.substring(6).trim());
+          if (isNaN(swapAmount) || swapAmount <= 0) {
+            bot?.sendMessage(Number(chatId), "Usage: /swap <amount_usdc>\nExample: /swap 5");
+            return;
+          }
+          if (!isUniswapConfigured()) {
+            bot?.sendMessage(Number(chatId), "❌ Uniswap not configured (UNISWAP_API_KEY or PRIVATE_KEY missing).");
+            return;
+          }
+          bot?.sendMessage(Number(chatId), `⏳ Swapping ${swapAmount} USDC → ETH via Uniswap...`);
+          const swapResult = await performAutonomousSwap(swapAmount);
+          if (swapResult.success) {
+            const successMsg = `✅ Swap complete!\n\nIn: ${swapResult.amountIn} USDC\nOut: ~${parseFloat(swapResult.amountOut || "0").toFixed(6)} ETH\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>`;
+            bot?.sendMessage(Number(chatId), successMsg, { parse_mode: "HTML" });
+          } else if (swapResult.delegationDenied) {
+            bot?.sendMessage(Number(chatId), `🔒 Swap blocked — ${swapResult.reason}\n\nPlease sign a delegation in the dashboard.`);
+          } else {
+            bot?.sendMessage(Number(chatId), `❌ Swap failed: ${swapResult.error}`);
+          }
+          return;
         }
 
         if (text.startsWith("/send ")) {

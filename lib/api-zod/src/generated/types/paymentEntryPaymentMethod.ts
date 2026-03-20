@@ -12,4 +12,5 @@ export type PaymentEntryPaymentMethod =
 export const PaymentEntryPaymentMethod = {
   direct: "direct",
   locus: "locus",
+  swap: "swap",
 } as const;

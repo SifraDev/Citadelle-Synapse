@@ -47,7 +47,7 @@ export interface PaymentEntry {
   status: "pending" | "confirmed" | "failed";
   timestamp: string;
   network?: string;
-  paymentMethod?: "direct" | "locus";
+  paymentMethod?: "direct" | "locus" | "swap";
 }
 
 const MAX_ACTIVITY_ENTRIES = 500;

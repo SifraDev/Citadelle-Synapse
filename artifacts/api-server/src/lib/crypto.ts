@@ -73,6 +73,17 @@ export function isWalletReady(): boolean {
   return getWalletClient() !== null;
 }
 
+export async function getEthBalance(): Promise<string> {
+  try {
+    const client = getPublicClient();
+    const balance = await client.getBalance({ address: AGENT_WALLET });
+    return formatUnits(balance, 18);
+  } catch (err) {
+    console.error("[Crypto] Failed to read ETH balance:", err);
+    return "0";
+  }
+}
+
 export async function getUsdcBalance(): Promise<string> {
   try {
     const client = getPublicClient();

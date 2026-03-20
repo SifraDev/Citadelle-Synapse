@@ -24,6 +24,8 @@ import type {
   ConfirmPaymentInput,
   CreateChargeInput,
   CreateTaskInput,
+  DelegationInfo,
+  DelegationStatus,
   DraftInput,
   ErrorResponse,
   GetActivityLogsParams,
@@ -31,7 +33,10 @@ import type {
   HealthStatus,
   PaymentEntry,
   ScheduledTask,
+  SubmitDelegationInput,
   SuccessResponse,
+  SwapInput,
+  SwapResult,
   TelegramMessageInput,
   TelegramStatus,
   WalletInfo,
@@ -1453,4 +1458,251 @@ export const useConfirmPayment = <
   TContext
 > => {
   return useMutation(getConfirmPaymentMutationOptions(options));
+};
+
+/**
+ * @summary Get current delegation status and EIP-712 type info
+ */
+export const getGetDelegationUrl = () => {
+  return `/api/payments/delegation`;
+};
+
+export const getDelegation = async (
+  options?: RequestInit,
+): Promise<DelegationInfo> => {
+  return customFetch<DelegationInfo>(getGetDelegationUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDelegationQueryKey = () => {
+  return [`/api/payments/delegation`] as const;
+};
+
+export const getGetDelegationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDelegation>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDelegation>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDelegationQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDelegation>>> = ({
+    signal,
+  }) => getDelegation({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDelegation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDelegationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDelegation>>
+>;
+export type GetDelegationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current delegation status and EIP-712 type info
+ */
+
+export function useGetDelegation<
+  TData = Awaited<ReturnType<typeof getDelegation>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getDelegation>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDelegationQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a signed EIP-712 delegation
+ */
+export const getSubmitDelegationUrl = () => {
+  return `/api/payments/delegation`;
+};
+
+export const submitDelegation = async (
+  submitDelegationInput: SubmitDelegationInput,
+  options?: RequestInit,
+): Promise<DelegationStatus> => {
+  return customFetch<DelegationStatus>(getSubmitDelegationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitDelegationInput),
+  });
+};
+
+export const getSubmitDelegationMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDelegation>>,
+    TError,
+    { data: BodyType<SubmitDelegationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitDelegation>>,
+  TError,
+  { data: BodyType<SubmitDelegationInput> },
+  TContext
+> => {
+  const mutationKey = ["submitDelegation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitDelegation>>,
+    { data: BodyType<SubmitDelegationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitDelegation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitDelegationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitDelegation>>
+>;
+export type SubmitDelegationMutationBody = BodyType<SubmitDelegationInput>;
+export type SubmitDelegationMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a signed EIP-712 delegation
+ */
+export const useSubmitDelegation = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDelegation>>,
+    TError,
+    { data: BodyType<SubmitDelegationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitDelegation>>,
+  TError,
+  { data: BodyType<SubmitDelegationInput> },
+  TContext
+> => {
+  return useMutation(getSubmitDelegationMutationOptions(options));
+};
+
+/**
+ * @summary Manually trigger a USDC to ETH swap via Uniswap
+ */
+export const getExecuteSwapUrl = () => {
+  return `/api/payments/swap`;
+};
+
+export const executeSwap = async (
+  swapInput: SwapInput,
+  options?: RequestInit,
+): Promise<SwapResult> => {
+  return customFetch<SwapResult>(getExecuteSwapUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(swapInput),
+  });
+};
+
+export const getExecuteSwapMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof executeSwap>>,
+    TError,
+    { data: BodyType<SwapInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof executeSwap>>,
+  TError,
+  { data: BodyType<SwapInput> },
+  TContext
+> => {
+  const mutationKey = ["executeSwap"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof executeSwap>>,
+    { data: BodyType<SwapInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return executeSwap(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExecuteSwapMutationResult = NonNullable<
+  Awaited<ReturnType<typeof executeSwap>>
+>;
+export type ExecuteSwapMutationBody = BodyType<SwapInput>;
+export type ExecuteSwapMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Manually trigger a USDC to ETH swap via Uniswap
+ */
+export const useExecuteSwap = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof executeSwap>>,
+    TError,
+    { data: BodyType<SwapInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof executeSwap>>,
+  TError,
+  { data: BodyType<SwapInput> },
+  TContext
+> => {
+  return useMutation(getExecuteSwapMutationOptions(options));
 };

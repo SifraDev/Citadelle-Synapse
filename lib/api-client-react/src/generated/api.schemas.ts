@@ -148,6 +148,7 @@ export type PaymentEntryPaymentMethod =
 export const PaymentEntryPaymentMethod = {
   direct: "direct",
   locus: "locus",
+  swap: "swap",
 } as const;
 
 export interface PaymentEntry {
@@ -166,9 +167,11 @@ export interface PaymentEntry {
 export interface WalletInfo {
   address: string;
   usdcBalance: string;
+  ethBalance?: string;
   usdcContract?: string;
   network: string;
   chainId: number;
+  uniswapConfigured?: boolean;
   locus?: LocusStatus;
 }
 
@@ -237,6 +240,59 @@ export interface ConfirmPaymentInput {
   txHash: string;
   /** Optional charge ID to link this payment to */
   chargeId?: string;
+}
+
+export interface DelegationStatus {
+  active: boolean;
+  delegator?: string;
+  delegate?: string;
+  dailyLimitUsdc?: number;
+  dailyUsedUsdc?: number;
+  dailyRemainingUsdc?: number;
+  expiresAt?: string;
+  expired?: boolean;
+  signedAt?: string;
+  reason?: string;
+}
+
+export type DelegationInfoEip712 = { [key: string]: unknown };
+
+export interface DelegationInfo {
+  active: boolean;
+  delegator?: string;
+  delegate?: string;
+  dailyLimitUsdc?: number;
+  dailyUsedUsdc?: number;
+  dailyRemainingUsdc?: number;
+  expiresAt?: string;
+  expired?: boolean;
+  signedAt?: string;
+  reason?: string;
+  eip712?: DelegationInfoEip712;
+}
+
+export interface SubmitDelegationInput {
+  delegator: string;
+  delegate: string;
+  allowedContract: string;
+  dailyLimitUsdc: number;
+  expiresAt: number;
+  signature: string;
+}
+
+export interface SwapInput {
+  /** USDC amount to swap to ETH */
+  amount: number;
+}
+
+export interface SwapResult {
+  success: boolean;
+  txHash?: string;
+  amountIn?: string;
+  amountOut?: string;
+  error?: string;
+  delegationDenied?: boolean;
+  reason?: string;
 }
 
 export type AnalyzeDocumentsBodyMode =

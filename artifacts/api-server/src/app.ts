@@ -4,6 +4,7 @@ import router from "./routes";
 import { initTelegramBot } from "./lib/telegram";
 import { startTransferMonitor } from "./lib/crypto";
 import { locusHealthCheck, startLocusMonitor, isLocusConfigured } from "./lib/locus";
+import { isUniswapConfigured, getSwapConfig } from "./lib/uniswap";
 import { store } from "./lib/store";
 
 const app: Express = express();
@@ -31,6 +32,17 @@ if (isLocusConfigured()) {
   startLocusMonitor();
 } else {
   store.addActivity("system", "Locus: not configured (LOCUS_API_KEY missing)");
+}
+
+if (isUniswapConfigured()) {
+  const swapConfig = getSwapConfig();
+  store.addActivity(
+    "system",
+    `Uniswap Trading API ready — auto-swap ${(swapConfig.commissionRate * 100).toFixed(0)}% commission USDC→ETH (min ${swapConfig.minSwapThreshold} USDC)`
+  );
+  console.log("[Uniswap] Trading API configured and ready");
+} else {
+  store.addActivity("system", "Uniswap: not configured (UNISWAP_API_KEY or PRIVATE_KEY missing)");
 }
 
 store.addActivity("system", "Venice AI Legal Platform started");

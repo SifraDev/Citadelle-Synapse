@@ -10,8 +10,10 @@ import type { LocusStatus } from "./locusStatus";
 export interface WalletInfo {
   address: string;
   usdcBalance: string;
+  ethBalance?: string;
   usdcContract?: string;
   network: string;
   chainId: number;
+  uniswapConfigured?: boolean;
   locus?: LocusStatus;
 }

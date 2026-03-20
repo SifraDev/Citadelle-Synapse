@@ -168,7 +168,7 @@ export const GetPaymentsResponseItem = zod.object({
   status: zod.enum(["pending", "confirmed", "failed"]),
   timestamp: zod.date(),
   network: zod.string().optional(),
-  paymentMethod: zod.enum(["direct", "locus"]).optional(),
+  paymentMethod: zod.enum(["direct", "locus", "swap"]).optional(),
 });
 export const GetPaymentsResponse = zod.array(GetPaymentsResponseItem);
 
@@ -178,9 +178,11 @@ export const GetPaymentsResponse = zod.array(GetPaymentsResponseItem);
 export const GetWalletInfoResponse = zod.object({
   address: zod.string(),
   usdcBalance: zod.string(),
+  ethBalance: zod.string().optional(),
   usdcContract: zod.string().optional(),
   network: zod.string(),
   chainId: zod.number(),
+  uniswapConfigured: zod.boolean().optional(),
   locus: zod
     .object({
       connected: zod.boolean(),
@@ -272,5 +274,64 @@ export const ConfirmPaymentResponse = zod.object({
   status: zod.enum(["pending", "confirmed", "failed"]),
   timestamp: zod.date(),
   network: zod.string().optional(),
-  paymentMethod: zod.enum(["direct", "locus"]).optional(),
+  paymentMethod: zod.enum(["direct", "locus", "swap"]).optional(),
+});
+
+/**
+ * @summary Get current delegation status and EIP-712 type info
+ */
+export const GetDelegationResponse = zod.object({
+  active: zod.boolean(),
+  delegator: zod.string().optional(),
+  delegate: zod.string().optional(),
+  dailyLimitUsdc: zod.number().optional(),
+  dailyUsedUsdc: zod.number().optional(),
+  dailyRemainingUsdc: zod.number().optional(),
+  expiresAt: zod.date().optional(),
+  expired: zod.boolean().optional(),
+  signedAt: zod.date().optional(),
+  reason: zod.string().optional(),
+  eip712: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Submit a signed EIP-712 delegation
+ */
+export const SubmitDelegationBody = zod.object({
+  delegator: zod.string(),
+  delegate: zod.string(),
+  allowedContract: zod.string(),
+  dailyLimitUsdc: zod.number(),
+  expiresAt: zod.number(),
+  signature: zod.string(),
+});
+
+export const SubmitDelegationResponse = zod.object({
+  active: zod.boolean(),
+  delegator: zod.string().optional(),
+  delegate: zod.string().optional(),
+  dailyLimitUsdc: zod.number().optional(),
+  dailyUsedUsdc: zod.number().optional(),
+  dailyRemainingUsdc: zod.number().optional(),
+  expiresAt: zod.date().optional(),
+  expired: zod.boolean().optional(),
+  signedAt: zod.date().optional(),
+  reason: zod.string().optional(),
+});
+
+/**
+ * @summary Manually trigger a USDC to ETH swap via Uniswap
+ */
+export const ExecuteSwapBody = zod.object({
+  amount: zod.number().describe("USDC amount to swap to ETH"),
+});
+
+export const ExecuteSwapResponse = zod.object({
+  success: zod.boolean(),
+  txHash: zod.string().optional(),
+  amountIn: zod.string().optional(),
+  amountOut: zod.string().optional(),
+  error: zod.string().optional(),
+  delegationDenied: zod.boolean().optional(),
+  reason: zod.string().optional(),
 });
