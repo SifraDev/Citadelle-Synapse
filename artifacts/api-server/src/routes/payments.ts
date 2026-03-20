@@ -224,8 +224,8 @@ router.post("/payments/confirm", async (req, res): Promise<void> => {
     verification.from || "unknown",
     {
       trigger: `Payment confirmation request for tx ${txHash.slice(0, 16)}...`,
-      plan: `Verify on-chain USDC transfer via ${verifyMethod}, match to pending charge, update status`,
-      execution: `Verified ${verification.amount} USDC from ${verification.from?.slice(0, 10)}... — charge matched and marked paid`,
+      plan: `Verify on-chain USDC transfer via ${verifyMethod}${chargeId ? ", match to pending charge, update status" : ", record payment"}`,
+      execution: `Verified ${verification.amount} USDC from ${verification.from?.slice(0, 10)}...${chargeId ? " — charge matched and marked paid" : " — recorded as direct payment"}`,
       verification: `Tx ${txHash.slice(0, 16)}... confirmed on Base mainnet with correct amount and recipient`,
       outcome: `Payment recorded — client authorized for document analysis`,
     }
