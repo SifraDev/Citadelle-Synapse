@@ -41,6 +41,12 @@ if (isUniswapConfigured()) {
     `Uniswap Trading API ready — auto-swap ${(swapConfig.commissionRate * 100).toFixed(0)}% commission USDC→ETH (min ${swapConfig.minSwapThreshold} USDC)`
   );
   console.log("[Uniswap] Trading API configured and ready");
+  if (process.env.OWNER_ADDRESS) {
+    console.log(`[Delegation] Owner binding active: ${process.env.OWNER_ADDRESS}`);
+  } else {
+    console.warn("[Delegation] WARNING: OWNER_ADDRESS not set — delegation subsystem disabled, autonomous swaps will be rejected");
+    store.addActivity("system", "Delegation subsystem disabled — set OWNER_ADDRESS to enable autonomous swaps");
+  }
 } else {
   store.addActivity("system", "Uniswap: not configured (UNISWAP_API_KEY or PRIVATE_KEY missing)");
 }

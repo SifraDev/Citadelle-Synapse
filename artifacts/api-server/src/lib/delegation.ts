@@ -3,7 +3,9 @@ import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 
 const UNISWAP_UNIVERSAL_ROUTER_BASE = "0x6fF5693b99212Da76ad316178A184AB56D299b43" as const;
-const OWNER_ADDRESS = process.env.OWNER_ADDRESS?.toLowerCase() || null;
+function getOwnerAddress(): string | null {
+  return process.env.OWNER_ADDRESS?.toLowerCase() || null;
+}
 
 const DOMAIN = {
   name: "Venice AI Legal Platform",
@@ -89,8 +91,12 @@ export async function storeDelegation(
       return { success: false, error: "Agent wallet not configured (PRIVATE_KEY missing)" };
     }
 
-    if (OWNER_ADDRESS && delegator.toLowerCase() !== OWNER_ADDRESS) {
-      return { success: false, error: `Delegator must be the configured owner (${OWNER_ADDRESS}), got ${delegator}` };
+    const ownerAddress = getOwnerAddress();
+    if (!ownerAddress) {
+      return { success: false, error: "OWNER_ADDRESS not configured — delegation subsystem disabled" };
+    }
+    if (delegator.toLowerCase() !== ownerAddress) {
+      return { success: false, error: `Delegator must be the configured owner (${ownerAddress}), got ${delegator}` };
     }
 
     if (delegate.toLowerCase() !== agentAddress) {
@@ -162,7 +168,11 @@ export async function verifyDelegation(proposedAmountUsdc: number): Promise<{
     return { allowed: false, reason: "Delegation allowedContract does not match Uniswap Universal Router" };
   }
 
-  if (OWNER_ADDRESS && _currentDelegation.delegator.toLowerCase() !== OWNER_ADDRESS) {
+  const ownerAddress = getOwnerAddress();
+  if (!ownerAddress) {
+    return { allowed: false, reason: "OWNER_ADDRESS not configured — delegation subsystem disabled" };
+  }
+  if (_currentDelegation.delegator.toLowerCase() !== ownerAddress) {
     return { allowed: false, reason: "Delegation delegator does not match configured OWNER_ADDRESS" };
   }
 
