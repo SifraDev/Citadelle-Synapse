@@ -426,7 +426,13 @@ export async function recordActionReceipt(
   amount?: string,
   token?: string,
   counterparty?: string,
-  decision?: DecisionRecord
+  decision: DecisionRecord = {
+    trigger: description,
+    plan: "Execute and record action",
+    execution: description,
+    verification: txHash ? `Tx ${txHash.slice(0, 16)}... recorded` : "Action logged",
+    outcome: "Action completed successfully",
+  }
 ): Promise<void> {
   addAgentLogEntry({
     type: actionType,
