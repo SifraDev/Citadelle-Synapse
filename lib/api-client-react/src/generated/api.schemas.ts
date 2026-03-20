@@ -324,6 +324,14 @@ export const AgentLogEntryType = {
   reputation: "reputation",
 } as const;
 
+export interface DecisionRecord {
+  trigger: string;
+  plan: string;
+  execution: string;
+  verification: string;
+  outcome: string;
+}
+
 export interface AgentLogEntry {
   timestamp: string;
   type: AgentLogEntryType;
@@ -332,6 +340,46 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  decision?: DecisionRecord;
+}
+
+export type BudgetStatusCategories = {
+  [key: string]: {
+    used?: number;
+    limit?: number;
+    percentUsed?: number;
+    estimatedCost?: number;
+  };
+};
+
+export type BudgetStatusOverall = {
+  used?: number;
+  limit?: number;
+  percentUsed?: number;
+};
+
+export interface BudgetStatus {
+  categories: BudgetStatusCategories;
+  overall: BudgetStatusOverall;
+  lastResetAt: string;
+  nextResetAt: string;
+}
+
+export type X402InfoServicesItem = { [key: string]: unknown };
+
+export type X402InfoPaymentDetails = {
+  recipient?: string;
+  token?: string;
+  chain?: string;
+  chainId?: number;
+};
+
+export interface X402Info {
+  protocol: string;
+  version: string;
+  services: X402InfoServicesItem[];
+  paymentDetails: X402InfoPaymentDetails;
+  capabilities?: string[];
 }
 
 export interface SwapInput {

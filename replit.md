@@ -69,6 +69,31 @@ Venice AI Legal Platform — a zero-retention document analysis platform for law
 - Verification: checks signature via ecrecover, expiry, and daily cumulative usage
 - Graceful denial: logs "Permission Required", notifies via Telegram, does NOT error
 
+### x402 Payment Protocol (artifacts/api-server/src/lib/x402.ts)
+- Implements HTTP 402 payment protocol for agent-to-agent service monetization
+- External callers to POST /api/analyze get 402 response with payment facilitation JSON
+- Callers include X-Payment-TxHash header to prove USDC payment
+- Middleware verifies on-chain USDC transfer to agent wallet before allowing access
+- Internal requests (same-origin dashboard, admin token, XHR) bypass paywall
+- GET /api/x402/info returns machine-readable pricing and payment instructions
+- Configurable via X402_BASE_PRICE (default 1.00 USDC) and X402_PRICE_PER_PAGE (default 0.50 USDC)
+- Verified tx hashes cached to avoid re-verification on subsequent requests
+
+### Compute Budget Tracker (artifacts/api-server/src/lib/budget.ts)
+- Tracks API call counts by category: venice, rpc, uniswap, locus, telegram
+- Configurable limits per category via BUDGET_LIMIT_<CATEGORY> env vars
+- Daily reset at midnight UTC (24h cycle from server start)
+- `canCall(category)` check returns false when budget exhausted (graceful degradation)
+- `trackCall(category, weight?)` increments usage counters
+- GET /api/budget endpoint returns current usage, limits, percentages, and next reset time
+- Agent manifest includes computeBudget section showing configured limits
+
+### Structured Decision Logs (artifacts/api-server/src/lib/erc8004.ts)
+- AgentLogEntry includes optional `decision` object: trigger, plan, execution, verification, outcome
+- Decision records added to: commission pipeline (locus.ts), swap execution (uniswap.ts), payment detection (crypto.ts), x402 payment required responses
+- agent_log.json exposes the full autonomous decision chain for each action
+- Demonstrates structured reasoning for Protocol Labs / ERC-8004 prize track
+
 ### Telegram Bot (artifacts/api-server/src/lib/telegram.ts)
 - Runs in the same Express process (not a separate service)
 - Uses polling mode with 409 Conflict protection (stops polling on conflict)
@@ -103,7 +128,9 @@ artifacts-monorepo/
 │   │       │   ├── locus.ts     # Locus payment API client
 │   │       │   ├── uniswap.ts   # Uniswap Trading API client
 │   │       │   ├── delegation.ts # EIP-712 delegation system
-│   │       │   └── erc8004.ts   # ERC-8004 agent identity & reputation
+│   │       │   ├── erc8004.ts   # ERC-8004 agent identity & reputation
+│   │       │   ├── x402.ts      # x402 payment protocol middleware
+│   │       │   └── budget.ts    # Compute budget tracker (DIEM)
 │   │       └── routes/
 │   │           ├── analysis.ts   # PDF upload + SSE streaming analysis
 │   │           ├── tasks.ts      # CRUD for scheduled tasks
@@ -171,8 +198,10 @@ artifacts-monorepo/
 - `GET /api/payments/identity` — ERC-8004 agent identity status (registration, agentId, reputation score)
 - `POST /api/payments/identity/register` — Register agent on ERC-8004 IdentityRegistry (auth-guarded)
 - `GET /api/payments/agent-log` — Agent action log (swaps, payments, registrations)
+- `GET /api/budget` — Compute budget status (usage, limits, percentages, next reset)
+- `GET /api/x402/info` — x402 payment protocol pricing and instructions
 - `GET /.well-known/agent.json` — ERC-8004 agent manifest (served from app.ts)
-- `GET /agent_log.json` — ERC-8004 agent action log (served from app.ts)
+- `GET /agent_log.json` — ERC-8004 agent action log with structured decisions (served from app.ts)
 
 ## Root Scripts
 

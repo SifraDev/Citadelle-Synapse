@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { trackCall, canCall } from "./budget.js";
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
 
@@ -44,6 +45,10 @@ const SANITIZE_PROMPT = `You are a senior legal privacy compliance officer. Your
 The output must be a complete, readable legal analysis that contains zero personally identifiable information (PII) while retaining full analytical value.`;
 
 export async function sanitizeAnalysis(analysisText: string): Promise<string> {
+  if (!canCall("venice")) {
+    throw new Error("Venice AI compute budget exhausted for today. Try again after daily reset.");
+  }
+  trackCall("venice");
   const ai = getClient();
   let result = "";
 
@@ -68,6 +73,10 @@ export async function sanitizeAnalysis(analysisText: string): Promise<string> {
 }
 
 export async function* streamAnalysis(options: AnalysisOptions): AsyncGenerator<string> {
+  if (!canCall("venice")) {
+    throw new Error("Venice AI compute budget exhausted for today. Try again after daily reset.");
+  }
+  trackCall("venice");
   const ai = getClient();
   const systemPrompt = SYSTEM_PROMPTS[options.mode];
   

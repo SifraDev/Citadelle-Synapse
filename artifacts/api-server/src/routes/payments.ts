@@ -26,6 +26,7 @@ import {
   getAgentLog,
   recordActionReceipt,
 } from "../lib/erc8004.js";
+import { getBudgetStatus } from "../lib/budget.js";
 
 const router: IRouter = Router();
 
@@ -398,6 +399,10 @@ router.post("/payments/identity/register", async (_req, res): Promise<void> => {
 
 router.get("/payments/agent-log", async (_req, res): Promise<void> => {
   res.json(getAgentLog());
+});
+
+router.get("/budget", (_req, res): void => {
+  res.json(getBudgetStatus());
 });
 
 export default router;

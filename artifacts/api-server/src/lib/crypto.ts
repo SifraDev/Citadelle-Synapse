@@ -13,6 +13,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { recordActionReceipt } from "./erc8004.js";
+import { trackCall, canCall } from "./budget.js";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const VVV_ADDRESS = "0xacfE6019Ed1A7Dc6f7B508C02d1b04ec88cC21bf" as const;
@@ -177,7 +178,14 @@ async function processTransferLogs(logs: Log[]) {
       txHash,
       amount,
       "USDC",
-      from
+      from,
+      {
+        trigger: `USDC Transfer event detected in block range — ${amount} USDC from ${from.slice(0, 10)}...`,
+        plan: "Match incoming transfer against pending charges, record payment, notify via Telegram",
+        execution: `Transfer logged, ${matchedCharge ? "matched charge " + matchedCharge.id.slice(0, 8) + " marked paid" : "no matching charge found"}`,
+        verification: `On-chain event confirmed in tx ${txHash?.slice(0, 16)}...`,
+        outcome: `Payment of ${amount} USDC recorded and operator notified`,
+      }
     );
   }
 }
@@ -197,6 +205,8 @@ export async function startTransferMonitor(): Promise<void> {
 
     pollInterval = setInterval(async () => {
       try {
+        if (!canCall("rpc")) return;
+        trackCall("rpc");
         const client = getPublicClient();
         const latestBlock = await client.getBlockNumber();
 

@@ -8,6 +8,7 @@ import {
   useGetDelegation,
   useSubmitDelegation,
   useGetAgentIdentity,
+  useGetBudgetStatus,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { truncateAddress } from "@/lib/utils";
@@ -31,6 +32,7 @@ import {
   Zap,
   Fingerprint,
   Gem,
+  Gauge,
 } from "lucide-react";
 
 const BASE_CHAIN_ID = 8453;
@@ -62,6 +64,7 @@ export default function Payments() {
   const { data: charges, refetch: refetchCharges } = useListCharges({ query: { refetchInterval: 10000 } });
   const { data: delegation, refetch: refetchDelegation } = useGetDelegation({ query: { refetchInterval: 15000 } });
   const { data: identity } = useGetAgentIdentity({ query: { refetchInterval: 30000 } });
+  const { data: budget } = useGetBudgetStatus({ query: { refetchInterval: 30000 } });
   const { mutateAsync: createCharge, isPending: creatingCharge } = useCreateCharge();
   const { mutateAsync: confirmPayment } = useConfirmPayment();
   const { mutateAsync: submitDelegation } = useSubmitDelegation();
@@ -570,6 +573,38 @@ export default function Payments() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {budget && (
+        <div className="bg-card rounded-xl border border-cyan-500/20 p-5 shadow-lg">
+          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Gauge className="w-5 h-5 text-cyan-400" />
+            DIEM Compute Budget
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Object.entries(budget.categories || {}).map(([name, cat]) => {
+              const c = cat as { used: number; limit: number; percentUsed: number; estimatedCost: number };
+              const pct = c.percentUsed || 0;
+              const barColor = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-cyan-500";
+              return (
+                <div key={name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground capitalize">{name}</span>
+                    <span className="text-xs text-foreground font-mono">{c.used}/{c.limit}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-1.5">
+                    <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{pct}% used</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>Overall: {budget.overall?.used || 0}/{budget.overall?.limit || 0} ({budget.overall?.percentUsed || 0}%)</span>
+            <span>Resets: {budget.nextResetAt ? format(new Date(budget.nextResetAt), "MMM d, HH:mm") : "daily"}</span>
+          </div>
         </div>
       )}
 

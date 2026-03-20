@@ -470,6 +470,30 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AgentLogEntry"
+  /budget:
+    get:
+      operationId: getBudgetStatus
+      tags: [payments]
+      summary: Get compute budget usage and limits
+      responses:
+        "200":
+          description: Current compute budget status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetStatus"
+  /x402/info:
+    get:
+      operationId: getX402Info
+      tags: [payments]
+      summary: Get x402 payment protocol pricing and instructions
+      responses:
+        "200":
+          description: x402 pricing and payment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/X402Info"
   /payments/swap:
     post:
       operationId: executeSwap
@@ -967,10 +991,99 @@ components:
           type: string
         counterparty:
           type: string
+        decision:
+          $ref: "#/components/schemas/DecisionRecord"
       required:
         - timestamp
         - type
         - description
+    DecisionRecord:
+      type: object
+      properties:
+        trigger:
+          type: string
+        plan:
+          type: string
+        execution:
+          type: string
+        verification:
+          type: string
+        outcome:
+          type: string
+      required:
+        - trigger
+        - plan
+        - execution
+        - verification
+        - outcome
+    BudgetStatus:
+      type: object
+      properties:
+        categories:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              used:
+                type: integer
+              limit:
+                type: integer
+              percentUsed:
+                type: integer
+              estimatedCost:
+                type: number
+        overall:
+          type: object
+          properties:
+            used:
+              type: integer
+            limit:
+              type: integer
+            percentUsed:
+              type: integer
+        lastResetAt:
+          type: string
+          format: date-time
+        nextResetAt:
+          type: string
+          format: date-time
+      required:
+        - categories
+        - overall
+        - lastResetAt
+        - nextResetAt
+    X402Info:
+      type: object
+      properties:
+        protocol:
+          type: string
+        version:
+          type: string
+        services:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        paymentDetails:
+          type: object
+          properties:
+            recipient:
+              type: string
+            token:
+              type: string
+            chain:
+              type: string
+            chainId:
+              type: integer
+        capabilities:
+          type: array
+          items:
+            type: string
+      required:
+        - protocol
+        - version
+        - services
+        - paymentDetails
     SwapInput:
       type: object
       properties:

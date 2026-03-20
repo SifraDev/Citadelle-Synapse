@@ -21,6 +21,7 @@ import type {
   AgentIdentity,
   AgentLogEntry,
   AnalyzeDocumentsBody,
+  BudgetStatus,
   ChargeDetail,
   ChargeRequest,
   ConfirmPaymentInput,
@@ -43,6 +44,7 @@ import type {
   TelegramMessageInput,
   TelegramStatus,
   WalletInfo,
+  X402Info,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1847,6 +1849,154 @@ export function useGetAgentActionLog<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAgentActionLogQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get compute budget usage and limits
+ */
+export const getGetBudgetStatusUrl = () => {
+  return `/api/budget`;
+};
+
+export const getBudgetStatus = async (
+  options?: RequestInit,
+): Promise<BudgetStatus> => {
+  return customFetch<BudgetStatus>(getGetBudgetStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBudgetStatusQueryKey = () => {
+  return [`/api/budget`] as const;
+};
+
+export const getGetBudgetStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBudgetStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBudgetStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBudgetStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBudgetStatus>>> = ({
+    signal,
+  }) => getBudgetStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBudgetStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBudgetStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBudgetStatus>>
+>;
+export type GetBudgetStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get compute budget usage and limits
+ */
+
+export function useGetBudgetStatus<
+  TData = Awaited<ReturnType<typeof getBudgetStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBudgetStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBudgetStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get x402 payment protocol pricing and instructions
+ */
+export const getGetX402InfoUrl = () => {
+  return `/api/x402/info`;
+};
+
+export const getX402Info = async (options?: RequestInit): Promise<X402Info> => {
+  return customFetch<X402Info>(getGetX402InfoUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetX402InfoQueryKey = () => {
+  return [`/api/x402/info`] as const;
+};
+
+export const getGetX402InfoQueryOptions = <
+  TData = Awaited<ReturnType<typeof getX402Info>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getX402Info>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetX402InfoQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getX402Info>>> = ({
+    signal,
+  }) => getX402Info({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getX402Info>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetX402InfoQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getX402Info>>
+>;
+export type GetX402InfoQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get x402 payment protocol pricing and instructions
+ */
+
+export function useGetX402Info<
+  TData = Awaited<ReturnType<typeof getX402Info>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getX402Info>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetX402InfoQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

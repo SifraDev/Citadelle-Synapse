@@ -5,6 +5,7 @@ import { isLocusConfigured, getLocusBalance, getLocusWalletAddress } from "./loc
 import { isUniswapConfigured, performAutonomousSwap } from "./uniswap.js";
 import { getDelegationStatus } from "./delegation.js";
 import { getIdentityStatus, checkRegistration, registerAgent } from "./erc8004.js";
+import { trackCall, canCall } from "./budget.js";
 
 function getPaymentUrl(chargeId: string): string {
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
@@ -373,6 +374,11 @@ export async function sendMessage(message: string, chatId?: string, options?: an
   const targetChat = chatId || process.env.TELEGRAM_CHAT_ID;
   if (!targetChat) return false;
 
+  if (!canCall("telegram")) {
+    console.warn("[Telegram] Budget exhausted, skipping message send");
+    return false;
+  }
+  trackCall("telegram");
   try {
     await bot.sendMessage(Number(targetChat), message, options || { parse_mode: "HTML" });
     logOutgoing(targetChat, message);

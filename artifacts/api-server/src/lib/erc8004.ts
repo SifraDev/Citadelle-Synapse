@@ -10,6 +10,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { store } from "./store.js";
 import { sendMessage } from "./telegram.js";
 import { getAgentWallet } from "./crypto.js";
+import { getBudgetSummaryForManifest } from "./budget.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -46,6 +47,14 @@ export interface AgentIdentity {
   feedbackCount?: number;
 }
 
+export interface DecisionRecord {
+  trigger: string;
+  plan: string;
+  execution: string;
+  verification: string;
+  outcome: string;
+}
+
 export interface AgentLogEntry {
   timestamp: string;
   type: "swap" | "payment" | "delegation" | "registration" | "reputation";
@@ -54,6 +63,7 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  decision?: DecisionRecord;
 }
 
 let _agentId: number | null = null;
@@ -115,7 +125,7 @@ export function getAgentLog(): AgentLogEntry[] {
   return [..._agentLog];
 }
 
-export function addAgentLogEntry(entry: Omit<AgentLogEntry, "timestamp">): void {
+export function addAgentLogEntry(entry: Omit<AgentLogEntry, "timestamp"> & { decision?: DecisionRecord }): void {
   _agentLog.push({
     ...entry,
     timestamp: new Date().toISOString(),
@@ -401,7 +411,8 @@ export async function recordActionReceipt(
   txHash?: string,
   amount?: string,
   token?: string,
-  counterparty?: string
+  counterparty?: string,
+  decision?: DecisionRecord
 ): Promise<void> {
   addAgentLogEntry({
     type: actionType,
@@ -410,6 +421,7 @@ export async function recordActionReceipt(
     amount,
     token,
     counterparty,
+    decision,
   });
 
   if (_agentId !== null) {
@@ -450,6 +462,8 @@ export function buildAgentJson(domain: string) {
       "telegram-communication",
       "locus-treasury-management",
       "vvv-compute-equity-acquisition",
+      "x402-payment-acceptance",
+      "compute-budget-awareness",
     ],
     services: [
       {
@@ -463,6 +477,19 @@ export function buildAgentJson(domain: string) {
         description: "Agent-to-Agent API for document analysis and payment operations",
       },
     ],
+    x402: {
+      endpoint: `https://${domain}/api/analyze`,
+      discoveryEndpoint: `https://${domain}/api/x402/info`,
+      pricing: {
+        basePrice: "1.00",
+        pricePerPage: "0.50",
+        currency: "USDC",
+        chain: "Base",
+        chainId: 8453,
+      },
+      paymentRecipient: walletAddress,
+    },
+    computeBudget: getBudgetSummaryForManifest(),
     agentWallet: walletAddress,
     chain: "base",
     chainId: 8453,

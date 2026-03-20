@@ -14,6 +14,7 @@ import { sendMessage } from "./telegram.js";
 import { verifyDelegation, recordDailyUsage } from "./delegation.js";
 import { getAgentWallet } from "./crypto.js";
 import { recordActionReceipt } from "./erc8004.js";
+import { trackCall, canCall } from "./budget.js";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -113,7 +114,10 @@ export async function getSwapQuote(usdcAmount: number, outputToken: string = ETH
 
   const amountRaw = parseUnits(usdcAmount.toString(), USDC_DECIMALS).toString();
 
+  if (!canCall("uniswap")) return { success: false, error: "Uniswap budget exhausted" };
+
   try {
+    trackCall("uniswap");
     const response = await fetch(`${UNISWAP_API_BASE}/quote`, {
       method: "POST",
       headers: {
@@ -203,7 +207,10 @@ export async function executeSwap(quoteResponse: UniswapQuoteResponse): Promise<
   const account = getAccount();
   if (!apiKey || !account) return { success: false, error: "Missing API key or private key" };
 
+  if (!canCall("uniswap")) return { success: false, error: "Uniswap budget exhausted" };
+
   try {
+    trackCall("uniswap");
     const orderResponse = await fetch(`${UNISWAP_API_BASE}/order`, {
       method: "POST",
       headers: {
@@ -434,7 +441,14 @@ export async function performAutonomousSwap(usdcAmount: number, outputToken: str
     swapResult.txHash,
     usdcAmount.toString(),
     `USDC→${outputLabel}`,
-    "Uniswap Universal Router"
+    "Uniswap Universal Router",
+    {
+      trigger: `Commission accumulated ${usdcAmount} USDC for ${outputLabel} conversion`,
+      plan: `Swap ${usdcAmount} USDC → ${outputLabel} via Uniswap on Base: verify delegation → check balance → get quote → execute order`,
+      execution: `Delegation verified, USDC balance sufficient, quote obtained (${outputAmount} ${outputLabel}), swap order submitted`,
+      verification: `Transaction confirmed on-chain: ${swapResult.txHash?.slice(0, 16)}...`,
+      outcome: `Successfully swapped ${usdcAmount} USDC → ${outputAmount} ${outputLabel}`,
+    }
   );
 
   return {

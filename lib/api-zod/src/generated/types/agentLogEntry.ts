@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AgentLogEntryType } from "./agentLogEntryType";
+import type { DecisionRecord } from "./decisionRecord";
 
 export interface AgentLogEntry {
   timestamp: Date;
@@ -15,4 +16,5 @@ export interface AgentLogEntry {
   amount?: string;
   token?: string;
   counterparty?: string;
+  decision?: DecisionRecord;
 }

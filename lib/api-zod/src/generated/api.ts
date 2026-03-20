@@ -375,10 +375,57 @@ export const GetAgentActionLogResponseItem = zod.object({
   amount: zod.string().optional(),
   token: zod.string().optional(),
   counterparty: zod.string().optional(),
+  decision: zod
+    .object({
+      trigger: zod.string(),
+      plan: zod.string(),
+      execution: zod.string(),
+      verification: zod.string(),
+      outcome: zod.string(),
+    })
+    .optional(),
 });
 export const GetAgentActionLogResponse = zod.array(
   GetAgentActionLogResponseItem,
 );
+
+/**
+ * @summary Get compute budget usage and limits
+ */
+export const GetBudgetStatusResponse = zod.object({
+  categories: zod.record(
+    zod.string(),
+    zod.object({
+      used: zod.number().optional(),
+      limit: zod.number().optional(),
+      percentUsed: zod.number().optional(),
+      estimatedCost: zod.number().optional(),
+    }),
+  ),
+  overall: zod.object({
+    used: zod.number().optional(),
+    limit: zod.number().optional(),
+    percentUsed: zod.number().optional(),
+  }),
+  lastResetAt: zod.date(),
+  nextResetAt: zod.date(),
+});
+
+/**
+ * @summary Get x402 payment protocol pricing and instructions
+ */
+export const GetX402InfoResponse = zod.object({
+  protocol: zod.string(),
+  version: zod.string(),
+  services: zod.array(zod.record(zod.string(), zod.unknown())),
+  paymentDetails: zod.object({
+    recipient: zod.string().optional(),
+    token: zod.string().optional(),
+    chain: zod.string().optional(),
+    chainId: zod.number().optional(),
+  }),
+  capabilities: zod.array(zod.string()).optional(),
+});
 
 /**
  * @summary Manually trigger a USDC to ETH swap via Uniswap

@@ -4,6 +4,8 @@ import { getAgentWallet } from "./crypto.js";
 import { calculateCommission, performAutonomousSwap, isUniswapConfigured, getSwapConfig, getVvvAddress } from "./uniswap.js";
 import { verifyDelegation } from "./delegation.js";
 import { recordActionReceipt } from "./erc8004.js";
+import { trackCall, canCall } from "./budget.js";
+
 
 const LOCUS_API_BASE = "https://beta-api.paywithlocus.com/api";
 
@@ -54,6 +56,10 @@ async function locusRequest<T>(
     return { success: false, error: "LOCUS_API_KEY not configured" };
   }
 
+  if (!canCall("locus")) {
+    return { success: false, error: "Locus budget exhausted" };
+  }
+
   try {
     const options: RequestInit = {
       method,
@@ -66,6 +72,7 @@ async function locusRequest<T>(
       options.body = JSON.stringify(body);
     }
 
+    trackCall("locus");
     const response = await fetch(`${LOCUS_API_BASE}${path}`, options);
     const json = (await response.json()) as { success?: boolean; data?: T; error?: string; message?: string };
 
@@ -279,6 +286,22 @@ async function pollLocusTransactions(): Promise<void> {
                   network: "Base (Commission)",
                   paymentMethod: "locus",
                 });
+
+                recordActionReceipt(
+                  "payment",
+                  `Commission pipeline: ${totalCommission} USDC transferred from Locus to agent EOA for swap`,
+                  sendResult.tx_hash,
+                  totalCommission.toString(),
+                  "USDC",
+                  "Locus Treasury",
+                  {
+                    trigger: `Incoming Locus payment detected: ${amount} USDC (tx: ${tx.tx_hash?.slice(0, 12)}...)`,
+                    plan: `Calculate commission split: ${ethCommission.toFixed(4)} USDC→ETH + ${vvvCommission.toFixed(4)} USDC→VVV. Transfer total ${totalCommission.toFixed(4)} USDC to agent EOA, then execute independent swaps.`,
+                    execution: `Commission ${totalCommission} USDC transferred via Locus (tx: ${sendResult.tx_hash.slice(0, 16)}...)`,
+                    verification: `Transfer confirmed, proceeding to swap legs`,
+                    outcome: `Commission pipeline initiated — ETH leg: ${ethCommission >= minSwapThreshold ? "executing" : "below threshold"}, VVV leg: ${vvvCommission >= minSwapThreshold ? "executing" : "below threshold"}`,
+                  }
+                );
 
                 if (ethCommission >= minSwapThreshold) {
                   try {

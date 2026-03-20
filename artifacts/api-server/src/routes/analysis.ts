@@ -4,11 +4,16 @@ import { createRequire } from "module";
 import { streamAnalysis } from "../lib/venice.js";
 import { store } from "../lib/store.js";
 import { sendMessage } from "../lib/telegram.js";
+import { x402Middleware, getX402PricingInfo } from "../lib/x402.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 
 const router: IRouter = Router();
+
+router.get("/x402/info", (_req, res): void => {
+  res.json(getX402PricingInfo());
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -22,7 +27,7 @@ const upload = multer({
   },
 });
 
-router.post("/analyze", upload.array("files", 20), async (req, res): Promise<void> => {
+router.post("/analyze", x402Middleware, upload.array("files", 20), async (req, res): Promise<void> => {
   const files = req.files as Express.Multer.File[] | undefined;
   if (!files || files.length === 0) {
     res.status(400).json({ error: "No PDF files provided" });
