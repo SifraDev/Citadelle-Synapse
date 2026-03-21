@@ -8,10 +8,11 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 // ============================================================
 // PASTE YOUR URLs HERE BEFORE RUNNING
+// (or set them as environment variables / Replit secrets)
 // ============================================================
-const GITHUB_REPO_URL = "PASTE_YOUR_GITHUB_REPO_URL_HERE";
-const VIDEO_URL = "PASTE_YOUR_VIDEO_URL_HERE";
-const MOLTBOOK_POST_URL = "PASTE_YOUR_MOLTBOOK_POST_URL_HERE";
+const GITHUB_REPO_URL = process.env.GITHUB_REPO_URL || "PASTE_YOUR_GITHUB_REPO_URL_HERE";
+const VIDEO_URL = process.env.VIDEO_URL || "PASTE_YOUR_VIDEO_URL_HERE";
+const MOLTBOOK_POST_URL = process.env.MOLTBOOK_POST_URL || "PASTE_YOUR_MOLTBOOK_POST_URL_HERE";
 // ============================================================
 
 const API_BASE = "https://synthesis.devfolio.co";
