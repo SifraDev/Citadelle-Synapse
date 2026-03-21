@@ -260,9 +260,10 @@ async function main() {
       console.log(
         "  " + JSON.stringify(catalog, null, 2).slice(0, 2000)
       );
-      console.log(
-        "  WARNING: No matching tracks found. Proceeding without track selection."
+      console.error(
+        "  ERROR: No matching tracks found. Cannot submit without at least one track."
       );
+      process.exit(1);
     } else {
       console.log(`  Found ${trackUUIDs.length} matching tracks:`);
       for (const t of trackUUIDs) {
@@ -272,7 +273,8 @@ async function main() {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`  Failed to fetch catalog: ${msg}`);
-    console.log("  Proceeding without track selection...");
+    console.error("  Cannot submit without resolving tracks.");
+    process.exit(1);
   }
 
   // ── Step 3: Create draft project ──
@@ -282,19 +284,26 @@ async function main() {
     const projectBody: Record<string, unknown> = {
       name: PROJECT_NAME,
       tagline: PROJECT_TAGLINE,
+      teamUUID,
       repositoryUrl: GITHUB_REPO_URL,
-      submissionMetadata: SUBMISSION_METADATA,
+      repoURL: GITHUB_REPO_URL,
+      submissionMetadata: {
+        ...SUBMISSION_METADATA,
+        agentFramework: SUBMISSION_METADATA.framework,
+        agentHarness: SUBMISSION_METADATA.harness,
+        agentHarnessOther: SUBMISSION_METADATA.harnessOther,
+      },
+      trackUUIDs: trackUUIDs.map((t) => t.uuid),
+      tracks: trackUUIDs.map((t) => t.uuid),
     };
 
     if (!VIDEO_URL.startsWith("PASTE_")) {
       projectBody.videoUrl = VIDEO_URL;
+      projectBody.videoURL = VIDEO_URL;
     }
     if (!MOLTBOOK_POST_URL.startsWith("PASTE_")) {
       projectBody.moltbookPostUrl = MOLTBOOK_POST_URL;
-    }
-    if (trackUUIDs.length > 0) {
-      projectBody.trackUUIDs = trackUUIDs.map((t) => t.uuid);
-      projectBody.tracks = trackUUIDs.map((t) => t.uuid);
+      projectBody.moltbookPostURL = MOLTBOOK_POST_URL;
     }
 
     const project = await api<ProjectResponse>("POST", "/projects", projectBody);
