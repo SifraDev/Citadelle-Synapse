@@ -78,7 +78,7 @@ Content-Type: multipart/form-data
 Body:
   files: <PDF file(s)>
   mode: "summarize" | "extract_clauses" | "flag_risks" | "custom"
-  customQuery: <string>  (required if mode is "custom")
+  customQuery: <string>  (used when mode is "custom")
 ```
 
 Response: Server-Sent Events (SSE) stream with events:
@@ -91,7 +91,7 @@ Response: Server-Sent Events (SSE) stream with events:
 
 **Each transaction hash is single-use.** A hash cannot be reused for multiple requests.
 
-### 2. Complete API Endpoint Reference
+### 2. Primary API Endpoint Reference
 
 | Method | Path | Auth | Returns |
 |--------|------|------|---------|
@@ -160,14 +160,17 @@ When the agent receives a USDC payment, it autonomously:
 1. Records the payment in its internal ledger
 2. Notifies the owner via Telegram
 3. Calculates 10% commission (5% ETH + 5% VVV)
-4. Verifies active EIP-712 delegation from owner
-5. Transfers commission from Locus treasury to agent EOA (if Locus-sourced)
-6. Executes USDC → ETH swap via Uniswap V3 (gas replenishment)
-7. Executes USDC → VVV swap via Uniswap V3 (Venice compute equity)
-8. Logs a structured decision record with 5 fields: trigger, plan, execution, verification, outcome
-9. Submits reputation feedback on-chain to ERC-8004 ReputationRegistry
+4. Checks gating conditions before proceeding:
+   - Valid EIP-712 delegation from owner (required)
+   - Uniswap API configured (required for swaps)
+   - Commission amount exceeds minimum swap threshold (default 0.50 USDC)
+   - If payment arrived via Locus: transfers commission from Locus treasury to agent EOA first
+5. If all conditions met: executes USDC → ETH swap via Uniswap V3 (gas replenishment)
+6. If all conditions met: executes USDC → VVV swap via Uniswap V3 (Venice compute equity)
+7. Logs a structured decision record with 5 fields: trigger, plan, execution, verification, outcome
+8. Submits reputation feedback on-chain to ERC-8004 ReputationRegistry
 
-All swaps are gated by the delegation — the agent cannot spend more USDC than the owner has authorized per day.
+All swaps are gated by the delegation — the agent cannot spend more USDC than the owner has authorized per day. If any gating condition is not met, the payment is still recorded but swaps are skipped.
 
 ## Structured Decision Records
 
