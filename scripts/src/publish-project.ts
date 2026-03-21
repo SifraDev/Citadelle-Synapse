@@ -1,3 +1,11 @@
+import * as dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
+
 // ============================================================
 // PASTE YOUR URLs HERE BEFORE RUNNING
 // ============================================================
@@ -44,12 +52,61 @@ const PROJECT_NAME = "Venice AI Legal Analysis Platform";
 const PROJECT_TAGLINE =
   "Autonomous AI legal agent on Base — earns USDC from document analysis, manages its own crypto treasury via Locus, swaps on Uniswap, and logs every decision on-chain via ERC-8004.";
 
-async function api(
+interface ApiResponse {
+  [key: string]: unknown;
+}
+
+interface ParticipantResponse {
+  teamUUID?: string;
+  team_uuid?: string;
+  uuid?: string;
+  teams?: Array<{ uuid?: string; id?: string }>;
+  data?: {
+    teamUUID?: string;
+    team_uuid?: string;
+  };
+}
+
+interface TeamsResponse {
+  data?: Array<{ uuid?: string; id?: string }>;
+  teams?: Array<{ uuid?: string; id?: string }>;
+}
+
+interface TrackItem {
+  uuid?: string;
+  id?: string;
+  name?: string;
+  title?: string;
+  children?: TrackItem[];
+  tracks?: TrackItem[];
+  prizes?: TrackItem[];
+}
+
+interface CatalogResponse {
+  tracks?: TrackItem[];
+  prizes?: TrackItem[];
+  data?: { tracks?: TrackItem[] };
+  [key: string]: unknown;
+}
+
+interface ProjectResponse {
+  uuid?: string;
+  projectUUID?: string;
+  id?: string;
+  data?: { uuid?: string; projectUUID?: string };
+}
+
+interface ResolvedTrack {
+  uuid: string;
+  name: string;
+}
+
+async function api<T = ApiResponse>(
   method: string,
-  path: string,
+  apiPath: string,
   body?: Record<string, unknown>
-): Promise<unknown> {
-  const url = `${API_BASE}${path}`;
+): Promise<T> {
+  const url = `${API_BASE}${apiPath}`;
   const headers: Record<string, string> = {
     Authorization: `Bearer ${API_KEY}`,
     "Content-Type": "application/json",
@@ -63,33 +120,35 @@ async function api(
 
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(`${method} ${path} failed (${res.status}): ${text}`);
+    throw new Error(`${method} ${apiPath} failed (${res.status}): ${text}`);
   }
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(text) as T;
   } catch {
-    return text;
+    return text as unknown as T;
   }
 }
 
 function findTrackUUIDs(
-  catalog: any,
+  catalog: CatalogResponse | TrackItem[],
   targetNames: string[]
-): { uuid: string; name: string }[] {
-  const found: { uuid: string; name: string }[] = [];
-  const tracks: any[] =
-    catalog?.tracks || catalog?.data?.tracks || catalog?.prizes || [];
+): ResolvedTrack[] {
+  const found: ResolvedTrack[] = [];
+  const tracks: TrackItem[] = [];
 
-  if (tracks.length === 0 && Array.isArray(catalog)) {
+  if (Array.isArray(catalog)) {
     for (const item of catalog) {
-      if (item.tracks) {
-        tracks.push(...item.tracks);
-      }
+      if (item.tracks) tracks.push(...item.tracks);
+      else tracks.push(item);
     }
+  } else {
+    if (catalog.tracks) tracks.push(...catalog.tracks);
+    if (catalog.data?.tracks) tracks.push(...catalog.data.tracks);
+    if (catalog.prizes) tracks.push(...catalog.prizes);
   }
 
-  const searchIn = (items: any[]) => {
+  const searchIn = (items: TrackItem[]) => {
     for (const item of items) {
       const name: string = item.name || item.title || "";
       for (const target of targetNames) {
@@ -97,7 +156,8 @@ function findTrackUUIDs(
           name.toLowerCase().includes(target.toLowerCase()) &&
           !found.some((f) => f.name === name)
         ) {
-          found.push({ uuid: item.uuid || item.id, name });
+          const uuid = item.uuid || item.id;
+          if (uuid) found.push({ uuid, name });
         }
       }
       if (item.children) searchIn(item.children);
@@ -108,8 +168,8 @@ function findTrackUUIDs(
 
   searchIn(tracks);
 
-  if (found.length === 0 && typeof catalog === "object") {
-    const allArrays = Object.values(catalog).filter(Array.isArray) as any[][];
+  if (found.length === 0 && !Array.isArray(catalog)) {
+    const allArrays = Object.values(catalog).filter(Array.isArray) as TrackItem[][];
     for (const arr of allArrays) {
       searchIn(arr);
     }
@@ -125,7 +185,9 @@ async function main() {
   console.log();
 
   if (!API_KEY) {
-    console.error("SYNTHESIS_API_KEY is not set. Add it to your Replit secrets.");
+    console.error(
+      "SYNTHESIS_API_KEY is not set. Add it to your Replit secrets or scripts/.env file."
+    );
     process.exit(1);
   }
 
@@ -138,29 +200,42 @@ async function main() {
 
   console.log("Config:");
   console.log(`  GitHub:   ${GITHUB_REPO_URL}`);
-  console.log(`  Video:    ${VIDEO_URL.startsWith("PASTE_") ? "(not set — optional)" : VIDEO_URL}`);
-  console.log(`  Moltbook: ${MOLTBOOK_POST_URL.startsWith("PASTE_") ? "(not set — optional)" : MOLTBOOK_POST_URL}`);
+  console.log(
+    `  Video:    ${VIDEO_URL.startsWith("PASTE_") ? "(not set — optional)" : VIDEO_URL}`
+  );
+  console.log(
+    `  Moltbook: ${MOLTBOOK_POST_URL.startsWith("PASTE_") ? "(not set — optional)" : MOLTBOOK_POST_URL}`
+  );
   console.log();
 
   // ── Step 1: Fetch team info ──
   console.log("[1/5] Fetching team info...");
   let teamUUID: string;
   try {
-    const me = (await api("GET", "/participants/me")) as any;
-    teamUUID = me.teamUUID || me.team_uuid || me.data?.teamUUID || me.data?.team_uuid;
+    const me = await api<ParticipantResponse>("GET", "/participants/me");
+    teamUUID =
+      me.teamUUID ||
+      me.team_uuid ||
+      me.data?.teamUUID ||
+      me.data?.team_uuid ||
+      "";
+
     if (!teamUUID && me.teams && me.teams.length > 0) {
-      teamUUID = me.teams[0].uuid || me.teams[0].id;
+      teamUUID = me.teams[0].uuid || me.teams[0].id || "";
     }
     if (!teamUUID && me.uuid) {
       teamUUID = me.uuid;
     }
     if (!teamUUID) {
-      console.log("  /participants/me response:", JSON.stringify(me, null, 2));
+      console.log(
+        "  /participants/me response:",
+        JSON.stringify(me, null, 2)
+      );
       console.log("  Trying /teams fallback...");
-      const teams = (await api("GET", "/teams")) as any;
-      const teamList = teams.data || teams.teams || teams;
-      if (Array.isArray(teamList) && teamList.length > 0) {
-        teamUUID = teamList[0].uuid || teamList[0].id;
+      const teams = await api<TeamsResponse>("GET", "/teams");
+      const teamList = teams.data || teams.teams || [];
+      if (teamList.length > 0) {
+        teamUUID = teamList[0].uuid || teamList[0].id || "";
       }
       if (!teamUUID) {
         console.log("  /teams response:", JSON.stringify(teams, null, 2));
@@ -168,29 +243,35 @@ async function main() {
       }
     }
     console.log(`  Team UUID: ${teamUUID}`);
-  } catch (err: any) {
-    console.error(`  Failed: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`  Failed: ${msg}`);
     process.exit(1);
   }
 
   // ── Step 2: Fetch catalog and resolve track UUIDs ──
   console.log("[2/5] Fetching catalog for track UUIDs...");
-  let trackUUIDs: { uuid: string; name: string }[] = [];
+  let trackUUIDs: ResolvedTrack[] = [];
   try {
-    const catalog = await api("GET", "/catalog");
+    const catalog = await api<CatalogResponse>("GET", "/catalog");
     trackUUIDs = findTrackUUIDs(catalog, TARGET_TRACKS);
     if (trackUUIDs.length === 0) {
       console.log("  Full catalog response (for debugging):");
-      console.log("  " + JSON.stringify(catalog, null, 2).slice(0, 2000));
-      console.log("  WARNING: No matching tracks found. Proceeding without track selection.");
+      console.log(
+        "  " + JSON.stringify(catalog, null, 2).slice(0, 2000)
+      );
+      console.log(
+        "  WARNING: No matching tracks found. Proceeding without track selection."
+      );
     } else {
       console.log(`  Found ${trackUUIDs.length} matching tracks:`);
       for (const t of trackUUIDs) {
         console.log(`    - ${t.name} (${t.uuid})`);
       }
     }
-  } catch (err: any) {
-    console.error(`  Failed to fetch catalog: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`  Failed to fetch catalog: ${msg}`);
     console.log("  Proceeding without track selection...");
   }
 
@@ -216,33 +297,44 @@ async function main() {
       projectBody.tracks = trackUUIDs.map((t) => t.uuid);
     }
 
-    const project = (await api("POST", "/projects", projectBody)) as any;
+    const project = await api<ProjectResponse>("POST", "/projects", projectBody);
     projectUUID =
       project.uuid ||
       project.projectUUID ||
       project.data?.uuid ||
       project.data?.projectUUID ||
-      project.id;
+      project.id ||
+      "";
     if (!projectUUID) {
-      console.log("  Project creation response:", JSON.stringify(project, null, 2));
+      console.log(
+        "  Project creation response:",
+        JSON.stringify(project, null, 2)
+      );
       throw new Error("Could not extract projectUUID from response");
     }
     console.log(`  Project UUID: ${projectUUID}`);
-    console.log(`  Status: DRAFT`);
-  } catch (err: any) {
-    console.error(`  Failed: ${err.message}`);
+    console.log("  Status: DRAFT");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`  Failed: ${msg}`);
     process.exit(1);
   }
 
   // ── Step 4: Publish the project ──
   console.log("[4/5] Publishing project...");
   try {
-    const publishResult = await api("POST", `/projects/${projectUUID}/publish`);
+    const publishResult = await api<ApiResponse>(
+      "POST",
+      `/projects/${projectUUID}/publish`
+    );
     console.log("  Published successfully!");
     console.log("  Response:", JSON.stringify(publishResult, null, 2));
-  } catch (err: any) {
-    console.error(`  Publish failed: ${err.message}`);
-    console.log("  The draft was created but not published. You can try publishing manually.");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`  Publish failed: ${msg}`);
+    console.log(
+      "  The draft was created but not published. You can try publishing manually."
+    );
     console.log(`  Project UUID: ${projectUUID}`);
     process.exit(1);
   }
@@ -256,8 +348,10 @@ async function main() {
   console.log(`  Project: ${PROJECT_NAME}`);
   console.log(`  UUID:    ${projectUUID}`);
   console.log(`  GitHub:  ${GITHUB_REPO_URL}`);
-  console.log(`  Tracks:  ${trackUUIDs.map((t) => t.name).join(", ") || "none"}`);
-  console.log(`  Status:  PUBLISHED`);
+  console.log(
+    `  Tracks:  ${trackUUIDs.map((t) => t.name).join(", ") || "none"}`
+  );
+  console.log("  Status:  PUBLISHED");
   console.log();
 }
 
