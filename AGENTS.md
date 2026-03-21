@@ -15,12 +15,14 @@ This file is for agentic judges evaluating this project. It describes how to dis
 | USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | VVV Token | `0xacfE6019Ed1A7Dc6f7B508C02d1b04ec88cC21bf` |
 
+| Deployed URL | `https://6f5f6bee-b253-44a8-aa7e-5656f89a2d03-00-1e0abmjuqlr7a.worf.replit.dev` |
+
 ## Discovery
 
 ### Agent Manifest (ERC-8004)
 
 ```
-GET https://<DEPLOYED_DOMAIN>/.well-known/agent.json
+GET https://6f5f6bee-b253-44a8-aa7e-5656f89a2d03-00-1e0abmjuqlr7a.worf.replit.dev/.well-known/agent.json
 ```
 
 Returns the ERC-8004 registration manifest including capabilities, services, on-chain identity, x402 pricing, and DIEM compute budget status. This is the canonical entry point for machine discovery.
@@ -28,7 +30,7 @@ Returns the ERC-8004 registration manifest including capabilities, services, on-
 ### x402 Payment Discovery
 
 ```
-GET https://<DEPLOYED_DOMAIN>/api/x402/info
+GET https://6f5f6bee-b253-44a8-aa7e-5656f89a2d03-00-1e0abmjuqlr7a.worf.replit.dev/api/x402/info
 ```
 
 Returns the x402 pricing model, payment recipient address, token contract, chain, and supported services. Use this to determine how much USDC to send before calling `/api/analyze`.
@@ -36,7 +38,7 @@ Returns the x402 pricing model, payment recipient address, token contract, chain
 ### Health Check
 
 ```
-GET https://<DEPLOYED_DOMAIN>/api/healthz
+GET https://6f5f6bee-b253-44a8-aa7e-5656f89a2d03-00-1e0abmjuqlr7a.worf.replit.dev/api/healthz
 ```
 
 Returns system health status.
@@ -89,19 +91,36 @@ Response: Server-Sent Events (SSE) stream with events:
 
 **Each transaction hash is single-use.** A hash cannot be reused for multiple requests.
 
-### 2. Public Read Endpoints (No Auth Required)
+### 2. Complete API Endpoint Reference
 
-| Method | Path | Returns |
-|--------|------|---------|
-| `GET` | `/api/payments` | List of recorded payments |
-| `GET` | `/api/payments/wallet` | Agent wallet balances (ETH, USDC, VVV, Locus) |
-| `GET` | `/api/payments/charges` | List of pending/paid charges |
-| `GET` | `/api/payments/charge/:id` | Single charge details |
-| `GET` | `/api/payments/delegation` | Delegation status + EIP-712 type definitions |
-| `GET` | `/api/payments/identity` | ERC-8004 registration status and reputation score |
-| `GET` | `/api/payments/agent-log` | Structured decision log (all autonomous actions) |
-| `GET` | `/api/budget` | DIEM compute budget status |
-| `GET` | `/api/activity/stream` | SSE live activity stream |
+| Method | Path | Auth | Returns |
+|--------|------|------|---------|
+| `GET` | `/.well-known/agent.json` | Public | ERC-8004 agent manifest |
+| `GET` | `/api/healthz` | Public | System health check |
+| `GET` | `/api/x402/info` | Public | x402 pricing discovery |
+| `POST` | `/api/analyze` | x402 or Admin | Upload PDFs for streaming AI analysis (SSE) |
+| `GET` | `/api/payments` | Public | List of recorded payments |
+| `GET` | `/api/payments/wallet` | Public | Agent wallet balances (ETH, USDC, VVV, Locus) |
+| `GET` | `/api/payments/charges` | Public | List of pending/paid charges |
+| `POST` | `/api/payments/charge` | Public | Create a USDC payment charge |
+| `GET` | `/api/payments/charge/:id` | Public | Single charge details |
+| `POST` | `/api/payments/confirm` | Public | Confirm payment with tx hash |
+| `GET` | `/api/payments/delegation` | Public | Delegation status + EIP-712 type definitions |
+| `POST` | `/api/payments/delegation` | Public | Submit signed EIP-712 delegation |
+| `GET` | `/api/payments/identity` | Public | ERC-8004 registration status and reputation score |
+| `POST` | `/api/payments/identity/register` | Admin | Register agent on-chain (requires `Authorization: Bearer <ADMIN_API_TOKEN>`) |
+| `GET` | `/api/payments/agent-log` | Public | Structured decision log (all autonomous actions) |
+| `GET` | `/api/payments/locus/transactions` | Public | Locus transaction history |
+| `POST` | `/api/payments/locus/send` | Admin | Send USDC via Locus (requires `Authorization: Bearer <ADMIN_API_TOKEN>`) |
+| `POST` | `/api/payments/swap` | Admin | Trigger Uniswap swap (requires `Authorization: Bearer <ADMIN_API_TOKEN>`) |
+| `GET` | `/api/budget` | Public | DIEM compute budget status |
+| `GET` | `/api/activity/stream` | Public | SSE live activity stream |
+| `POST` | `/api/tasks` | Public | Schedule recurring tasks |
+
+**Auth modes:**
+- **Public** — no authentication required
+- **x402** — requires `X-Payment-TxHash` header with a valid on-chain USDC payment tx
+- **Admin** — requires `Authorization: Bearer <ADMIN_API_TOKEN>` header (used by the frontend proxy)
 
 ### 3. Charge-Based Payment Flow
 
@@ -185,14 +204,36 @@ The agent tracks its own compute consumption in DIEM credits (1 DIEM ≈ $1/day 
 GET /api/budget
 ```
 
-Returns:
-- `diem.used` / `diem.limit` — current DIEM consumption vs daily cap
-- `diem.remaining` — DIEM available
-- `diem.costPerKTokens` — 0.002 DIEM per 1K tokens
-- `diem.resetsAt` — next midnight UTC reset
-- Per-category call counts (venice, rpc, uniswap, locus, telegram)
+Response shape:
+```json
+{
+  "categories": {
+    "venice": { "used": 3, "limit": 200, "percentUsed": 2, "diemCost": 0.0124 },
+    "rpc": { "used": 15, "limit": 5000, "percentUsed": 0, "diemCost": 0 },
+    "uniswap": { "used": 0, "limit": 100, "percentUsed": 0, "diemCost": 0 },
+    "locus": { "used": 5, "limit": 500, "percentUsed": 1, "diemCost": 0 },
+    "telegram": { "used": 2, "limit": 1000, "percentUsed": 0, "diemCost": 0 }
+  },
+  "overall": { "used": 25, "limit": 6800, "percentUsed": 0 },
+  "diem": {
+    "consumed": 0.0124,
+    "budget": 5.0,
+    "percentUsed": 0,
+    "unit": "DIEM"
+  },
+  "lastResetAt": "2026-03-21T00:00:00.000Z",
+  "nextResetAt": "2026-03-22T00:00:00.000Z"
+}
+```
 
-When the DIEM budget is exhausted, the agent gracefully refuses Venice AI calls until the daily reset at midnight UTC.
+Key fields:
+- `diem.consumed` — DIEM used today (0.002 DIEM per 1K tokens for Venice calls)
+- `diem.budget` — daily DIEM cap (default 5.0, configurable via `BUDGET_DIEM_DAILY`)
+- `diem.percentUsed` — percentage of daily budget consumed
+- `nextResetAt` — next midnight UTC reset timestamp
+- `categories.<name>.diemCost` — DIEM cost attributed to each category
+
+When the DIEM budget is exhausted (`diem.consumed >= diem.budget`), the agent gracefully refuses Venice AI calls until the daily reset at midnight UTC.
 
 ## On-Chain Contracts
 
