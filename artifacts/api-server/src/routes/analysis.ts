@@ -21,10 +21,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
+    // MODO BLINDADO: Aceptamos PDF y TXT
+    if (file.mimetype === "application/pdf" || file.mimetype === "text/plain") {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF files are accepted"));
+      cb(new Error("Only PDF and TXT files are accepted"));
     }
   },
 });
@@ -32,7 +33,7 @@ const upload = multer({
 async function handleAnalysis(req: Request, res: Response): Promise<void> {
   const files = req.files as Express.Multer.File[] | undefined;
   if (!files || files.length === 0) {
-    res.status(400).json({ error: "No PDF files provided" });
+    res.status(400).json({ error: "No PDF or TXT files provided" });
     return;
   }
 
@@ -44,7 +45,7 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  store.addActivity("upload", `${files.length} PDF(s) uploaded for analysis`, {
+  store.addActivity("upload", `${files.length} file(s) uploaded for analysis`, {
     fileNames: files.map((f) => f.originalname),
     totalSize: files.reduce((sum, f) => sum + f.size, 0),
   });
@@ -62,7 +63,7 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
   const x402Payment: X402PaymentContext | undefined = (req as Request & { _x402Payment?: X402PaymentContext })._x402Payment;
 
   try {
-    sendSSE("status", { phase: "extracting", message: "Extracting text from PDFs..." });
+    sendSSE("status", { phase: "extracting", message: "Extracting text from files..." });
 
     const documentTexts: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -73,13 +74,28 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       });
 
       try {
-        const parsed = await pdfParse(file.buffer);
-        documentTexts.push(parsed.text);
-        sendSSE("status", {
-          phase: "extracted",
-          message: `Extracted ${parsed.numpages} pages from ${file.originalname}`,
-        });
-      } catch {
+        let extractedText = "";
+
+        // MODO SEGURO: Si es TXT lo lee directo, si es PDF usa el parser asegurando el buffer
+        if (file.mimetype === "text/plain" || file.originalname.endsWith('.txt')) {
+            extractedText = file.buffer.toString("utf-8");
+        } else {
+            const dataBuffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
+            const parsed = await pdfParse(dataBuffer);
+            extractedText = parsed.text;
+        }
+
+        if (extractedText && extractedText.trim()) {
+            documentTexts.push(extractedText);
+            sendSSE("status", {
+              phase: "extracted",
+              message: `Extracted text from ${file.originalname}`,
+            });
+        } else {
+            throw new Error("Text was empty after parsing");
+        }
+      } catch (err: any) {
+        console.error(`[PARSE ERROR] File: ${file.originalname}`, err);
         sendSSE("error", { message: `Failed to parse ${file.originalname}` });
       }
 
@@ -114,11 +130,13 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
     sendSSE("status", { phase: "complete", message: "Analysis complete. All document data purged from memory." });
     store.addActivity("analysis", `Analysis complete (${mode}). Documents purged from memory.`);
 
+    // --- AQUÍ ESTÁ LA NOTIFICACIÓN DE TELEGRAM QUE HABÍA BORRADO ---
     const truncatedSummary = fullResponse.substring(0, 500);
     await sendMessage(
       `📋 <b>Document Analysis Complete</b>\n\nMode: ${mode}\nDocuments: ${files.length}\n\n${truncatedSummary}${fullResponse.length > 500 ? "..." : ""}`
     );
 
+    // --- AQUÍ ESTÁ EL REGISTRO DE RECIBOS QUE HABÍA BORRADO ---
     const estimatedPromptTokens = Math.ceil(totalInputChars / 4);
     const estimatedCompletionTokens = Math.ceil(fullResponse.length / 4);
     const diemCost = `${getVeniceDiemCost(estimatedPromptTokens + estimatedCompletionTokens)} DIEM`;

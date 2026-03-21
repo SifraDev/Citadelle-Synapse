@@ -23,8 +23,8 @@ const clientsWaitingForPrice = new Map<string, string>();
 const preApprovedInvoices = new Map<string, number>();
 
 function logOutgoing(recipient: string, text: string) {
-  const label = recipient === process.env.TELEGRAM_CHAT_ID ? "CEO" : `chat ${recipient}`;
-  store.addActivity("telegram", `Bot replied to ${label}: ${text.substring(0, 200)}${text.length > 200 ? "..." : ""}`);
+  const label = recipient === process.env.TELEGRAM_CHAT_ID ? "Managing Partner" : `Client ${recipient}`;
+  store.addActivity("telegram", `Citadelle replied to ${label}: ${text.substring(0, 200)}${text.length > 200 ? "..." : ""}`);
 }
 
 function budgetedSend(chatId: string, text: string, options?: object): void {
@@ -60,8 +60,8 @@ export function initTelegramBot(): void {
 
     bot.getMe().then((me) => {
       botInfo = { username: me.username || "unknown" };
-      console.log(`[Telegram] Bot connected as @${botInfo.username}`);
-      store.addActivity("telegram", `Telegram bot connected as @${botInfo.username}`);
+      console.log(`[Telegram] Citadelle connected as @${botInfo.username}`);
+      store.addActivity("telegram", `Citadelle Legal Assistant connected as @${botInfo.username}`);
     }).catch((err) => {
       console.error("[Telegram] Failed to get bot info:", err.message);
     });
@@ -73,24 +73,24 @@ export function initTelegramBot(): void {
 
       if (!text) return;
 
-      store.addActivity("telegram", `Incoming from ${isCEO ? "CEO" : `@${msg.from?.username || "client"}`}: ${text.substring(0, 200)}`);
+      store.addActivity("telegram", `Incoming from ${isCEO ? "Managing Partner" : `Client @${msg.from?.username || "Unknown"}`}: ${text.substring(0, 200)}`);
 
       if (isCEO) {
         if (text === "/balance") {
-          let balanceMsg = "💰 <b>Treasury Status</b>\n\n";
+          let balanceMsg = "📊 <b>Firm Treasury & Compute Report</b>\n\n";
           if (isLocusConfigured()) {
             const locusInfo = await getLocusBalance();
             if (locusInfo) {
-              balanceMsg += `<b>Locus Wallet</b>\nAddress: <code>${locusInfo.wallet_address}</code>\nBalance: ${locusInfo.usdc_balance} USDC\nAllowance: ${locusInfo.allowance} USDC\nChain: ${locusInfo.chain}\n\n`;
+              balanceMsg += `<b>Locus Escrow (Client Funds)</b>\nAddress: <code>${locusInfo.wallet_address}</code>\nBalance: ${locusInfo.usdc_balance} USDC\nAllowance: ${locusInfo.allowance} USDC\nChain: ${locusInfo.chain}\n\n`;
             } else {
-              balanceMsg += "Locus: ❌ Failed to fetch\n\n";
+              balanceMsg += "Locus: ❌ Sync Failed\n\n";
             }
           }
           const vvvBal = await getVvvBalance();
           const ethBal = await getEthBalance();
-          balanceMsg += `<b>Direct Wallet</b>\nAddress: <code>${getAgentWallet()}</code>\nNetwork: Base\n\n`;
-          balanceMsg += `<b>Gas Treasury:</b> ${parseFloat(ethBal).toFixed(6)} ETH\n`;
-          balanceMsg += `<b>VVV Compute Equity:</b> ${parseFloat(vvvBal).toFixed(4)} VVV`;
+          balanceMsg += `<b>Citadelle Execution Wallet</b>\nAddress: <code>${getAgentWallet()}</code>\nNetwork: Base\n\n`;
+          balanceMsg += `<b>Gas Reserves:</b> ${parseFloat(ethBal).toFixed(6)} ETH\n`;
+          balanceMsg += `<b>Venice Compute Equity:</b> ${parseFloat(vvvBal).toFixed(4)} VVV`;
           budgetedSend(chatId, balanceMsg);
           return;
         }
@@ -112,7 +112,7 @@ export function initTelegramBot(): void {
 
             const payUrl = getPaymentUrl(charge.id);
             const walletDisplay = locusWallet || getAgentWallet();
-            budgetedSend(chatId, `💳 Charge created: ${amount} USDC${label ? ` for ${label}` : ""}\n\nPayment Link: ${payUrl}\nWallet: <code>${walletDisplay}</code>${locusWallet ? "\n💎 Powered by Locus" : ""}\n\nShare this link with the client to pay via MetaMask.`);
+            budgetedSend(chatId, `🧾 <b>Retainer Created:</b> ${amount} USDC${label ? ` for ${label}` : ""}\n\nSecure Portal: ${payUrl}\nEscrow: <code>${walletDisplay}</code>${locusWallet ? "\n🛡️ Secured by Locus" : ""}\n\nYou may forward this link to the client for immediate settlement.`);
             return;
         }
 
@@ -121,7 +121,7 @@ export function initTelegramBot(): void {
             const amount = Number(text);
             clientsWaitingForPrice.delete(chatId);
 
-            const charge = store.addCharge(String(amount), `telegram-client-${clientChatId}`);
+            const charge = store.addCharge(String(amount), `client-intake-${clientChatId}`);
             const locusWallet = await getLocusWalletAddress();
             if (locusWallet) {
               store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
@@ -129,15 +129,15 @@ export function initTelegramBot(): void {
             const payUrl = getPaymentUrl(charge.id);
             const walletDisplay = locusWallet || getAgentWallet();
 
-            budgetedSend(chatId, `✅ Confirmed. Charge created for ${amount} USDC.${locusWallet ? " 💎 Locus" : ""}\nPayment Link: ${payUrl}`);
+            budgetedSend(chatId, `✅ Understood. Retainer generated for ${amount} USDC. The client has been notified and provided with the secure payment link.`);
 
             const options = {
                 reply_markup: {
-                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, url: payUrl }]]
+                    inline_keyboard: [[{ text: `💳 Fund Retainer (${amount} USDC)`, url: payUrl }]]
                 }
             };
-            budgetedSend(clientChatId, `The attorney has reviewed your inquiry. The established fee is **${amount} USDC**.\n\nPay here: ${payUrl}\n\nOr send ${amount} USDC directly to:\nWallet: \`${walletDisplay}\`\nNetwork: Base`, options);
-            store.addActivity("payment", `CEO set price: ${amount} USDC for client`);
+            budgetedSend(clientChatId, `The managing partner has reviewed your file. The required retainer to proceed is <b>${amount} USDC</b>.\n\nPlease fund the secure escrow via the portal below:\n${payUrl}\n\nOr send ${amount} USDC directly to the firm's vault:\nWallet: <code>${walletDisplay}</code>\nNetwork: Base`, options);
+            store.addActivity("payment", `Partner set retainer: ${amount} USDC for client`);
             return;
         }
 
@@ -147,7 +147,7 @@ export function initTelegramBot(): void {
                 const keyword = parts[1].toLowerCase();
                 const amount = Number(parts[2]);
                 preApprovedInvoices.set(keyword, amount);
-                budgetedSend(chatId, `✅ Auto-Rule Saved: If a client mentions "${keyword}", I will charge ${amount} USDC automatically.`);
+                budgetedSend(chatId, `✅ Rule Saved: I will automatically quote ${amount} USDC to any client inquiring about "${keyword}".`);
                 return;
             }
         }
@@ -156,11 +156,11 @@ export function initTelegramBot(): void {
           const ethBal = await getEthBalance();
           const delegationInfo = getDelegationStatus();
           const walletAddr = getAgentWallet();
-          let gasMsg = `⛽ <b>Gas Treasury</b>\n\nETH Balance: ${parseFloat(ethBal).toFixed(6)} ETH\nWallet: <a href="https://basescan.org/address/${walletAddr}">${walletAddr}</a>\nNetwork: Base`;
+          let gasMsg = `⛽ <b>Infrastructure & Gas Status</b>\n\nETH Reserves: ${parseFloat(ethBal).toFixed(6)} ETH\nAgent Wallet: <a href="https://basescan.org/address/${walletAddr}">${walletAddr}</a>\nNetwork: Base`;
           if (delegationInfo.active) {
-            gasMsg += `\n\n🔑 Delegation: Active\nDaily: ${delegationInfo.dailyUsedUsdc?.toFixed(2)}/${delegationInfo.dailyLimitUsdc} USDC`;
+            gasMsg += `\n\n🔑 Partner Delegation: Active\nDaily Utilization: ${delegationInfo.dailyUsedUsdc?.toFixed(2)}/${delegationInfo.dailyLimitUsdc} USDC`;
           } else {
-            gasMsg += `\n\n🔒 Delegation: ${delegationInfo.reason || "None"}`;
+            gasMsg += `\n\n🔒 Partner Delegation: ${delegationInfo.reason || "None"}`;
           }
           budgetedSend(chatId, gasMsg);
           return;
@@ -169,34 +169,26 @@ export function initTelegramBot(): void {
         if (text === "/identity" || text.startsWith("/identity ")) {
           const subCmd = text.substring(10).trim();
           if (subCmd === "register") {
-            budgetedSend(chatId, "⏳ Registering agent identity on Base mainnet...");
+            budgetedSend(chatId, "⏳ Submitting firm's agent entity to Base mainnet registry...");
             const regResult = await registerAgent();
             if (regResult.success) {
-              budgetedSend(chatId, `🆔 <b>Agent Registered</b>\n\nAgent ID: ${regResult.agentId}\nTx: <a href="https://basescan.org/tx/${regResult.txHash}">${regResult.txHash?.slice(0, 16)}...</a>\nRegistry: <code>0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</code>`);
+              budgetedSend(chatId, `🏛️ <b>Entity Registration Complete</b>\n\nAgent ID: ${regResult.agentId}\nTx: <a href="https://basescan.org/tx/${regResult.txHash}">${regResult.txHash?.slice(0, 16)}...</a>\nRegistry: <code>0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</code>`);
             } else {
-              budgetedSend(chatId, `❌ Registration failed: ${regResult.error}`);
+              budgetedSend(chatId, `❌ Registry submission failed: ${regResult.error}`);
             }
           } else {
             const identity = await checkRegistration();
-            let idMsg = `🆔 <b>ERC-8004 Agent Identity</b>\n\n`;
-            idMsg += `Status: ${identity.registered ? "✅ Registered" : "❌ Not registered"}\n`;
+            let idMsg = `🏛️ <b>ERC-8004 Legal Entity Status</b>\n\n`;
+            idMsg += `Status: ${identity.registered ? "✅ Officially Registered" : "❌ Unregistered Entity"}\n`;
             if (identity.agentId !== undefined) {
-              idMsg += `Agent ID: #${identity.agentId}\n`;
+              idMsg += `License/Agent ID: #${identity.agentId}\n`;
             }
-            idMsg += `Wallet: <code>${identity.walletAddress}</code>\n`;
-            idMsg += `Registry: <a href="https://basescan.org/address/${identity.registryAddress}">${identity.registryAddress.slice(0, 16)}...</a>\n`;
-            idMsg += `Reputation: <a href="https://basescan.org/address/${identity.reputationRegistryAddress}">${identity.reputationRegistryAddress.slice(0, 16)}...</a>\n`;
+            idMsg += `Execution Wallet: <code>${identity.walletAddress}</code>\n`;
             if (identity.reputationScore !== undefined) {
-              idMsg += `\n📊 <b>Reputation Score:</b> ${identity.reputationScore}`;
-              if (identity.feedbackCount !== undefined) {
-                idMsg += ` (${identity.feedbackCount} feedback${identity.feedbackCount !== 1 ? "s" : ""})`;
-              }
-            }
-            if (identity.registrationTxHash) {
-              idMsg += `\nTx: <a href="https://basescan.org/tx/${identity.registrationTxHash}">${identity.registrationTxHash.slice(0, 16)}...</a>`;
+              idMsg += `\n📊 <b>Firm Reputation Score:</b> ${identity.reputationScore}`;
             }
             if (!identity.registered) {
-              idMsg += `\n\nUse /identity register to register on-chain.`;
+              idMsg += `\n\nUse /identity register to formalize our entity on-chain.`;
             }
             budgetedSend(chatId, idMsg);
           }
@@ -210,60 +202,49 @@ export function initTelegramBot(): void {
             return;
           }
           if (!isUniswapConfigured()) {
-            budgetedSend(chatId, "❌ Uniswap not configured (UNISWAP_API_KEY or PRIVATE_KEY missing).");
+            budgetedSend(chatId, "❌ Uniswap integration missing (API Key or Private Key required).");
             return;
           }
-          budgetedSend(chatId, `⏳ Swapping ${swapAmount} USDC → ETH via Uniswap...`);
+          budgetedSend(chatId, `⏳ Executing firm treasury swap: ${swapAmount} USDC → ETH via Uniswap...`);
           const swapResult = await performAutonomousSwap(swapAmount);
           if (swapResult.success) {
-            budgetedSend(chatId, `✅ Swap complete!\n\nIn: ${swapResult.amountIn} USDC\nOut: ~${parseFloat(swapResult.amountOut || "0").toFixed(6)} ETH\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>`);
+            budgetedSend(chatId, `✅ Trade Executed Successfully!\n\nDeployed: ${swapResult.amountIn} USDC\nAcquired: ~${parseFloat(swapResult.amountOut || "0").toFixed(6)} ETH\nTx: <a href="https://basescan.org/tx/${swapResult.txHash}">${swapResult.txHash?.slice(0, 16)}...</a>`);
           } else if (swapResult.delegationDenied) {
-            budgetedSend(chatId, `🔒 Swap blocked — ${swapResult.reason}\n\nPlease sign a delegation in the dashboard.`);
+            budgetedSend(chatId, `🔒 Operations Blocked — ${swapResult.reason}\n\nPlease authorize the delegation from the web dashboard.`);
           } else {
-            budgetedSend(chatId, `❌ Swap failed: ${swapResult.error}`);
+            budgetedSend(chatId, `❌ Trade failed: ${swapResult.error}`);
           }
           return;
         }
 
-        if (text.startsWith("/send ")) {
-            const parts = text.substring(6).trim().split(/\s+/);
-            if (parts.length >= 3) {
-              const toAddress = parts[0];
-              const sendAmount = Number(parts[1]);
-              const memo = parts.slice(2).join(" ");
-              if (!toAddress.startsWith("0x") || isNaN(sendAmount) || sendAmount <= 0) {
-                budgetedSend(chatId, "Usage: /send <0x_address> <amount> <memo>\nExample: /send 0xABC... 10 Refund for client");
-                return;
-              }
-              if (!isLocusConfigured()) {
-                budgetedSend(chatId, "❌ Locus not configured. Cannot send payments.");
-                return;
-              }
-              const { locusSendPayment: sendPaymentFn } = await import("./locus.js");
-              const result = await sendPaymentFn(toAddress, sendAmount, memo);
-              if ("error" in result) {
-                budgetedSend(chatId, `❌ Send failed: ${result.error}`);
-              } else {
-                budgetedSend(chatId, `✅ Sent ${sendAmount} USDC to <code>${toAddress}</code>\nTx: <a href="https://basescan.org/tx/${result.tx_hash}">${result.tx_hash.slice(0, 16)}...</a>`);
-              }
-              return;
-            }
+        // ==========================================
+        // SMART CONVERSATIONAL HANDLING FOR CEO
+        // ==========================================
+        const lowerText = text.toLowerCase().trim();
+        const greetings = ["hi", "hello", "hey", "hola", "buenos dias", "buenas tardes", "buenas noches", "good morning", "good evening"];
+
+        if (greetings.includes(lowerText)) {
+            budgetedSend(chatId, "Good day. Citadelle is fully synced and monitoring the Base network. How can I assist the firm today?");
+            return;
         }
 
-        store.addActivity("telegram", `CEO Log: ${text}`);
+        store.addActivity("telegram", `Partner Memo: ${text}`);
         const options = {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "💰 Generate Custom Invoice", callback_data: `manual_bill` }],
-                    [{ text: "🗑️ Dismiss Action", callback_data: `ignore` }]
+                    [{ text: "🧾 Prepare Client Invoice", callback_data: `manual_bill` }],
+                    [{ text: "📝 Just a Memo (Dismiss)", callback_data: `ignore` }]
                 ]
             }
         };
-        budgetedSend(chatId, `💼 Citadelle Node Online.\n\nI have logged your request. Should I prepare an invoice or stay on standby for incoming inquiries?`, options);
+        budgetedSend(chatId, `Message securely logged in the firm's records.\n\nShall I prepare a payment portal for a client, or is this just an internal memo?`, options);
 
       } else {
+        // ==========================================
+        // CLIENT INTAKE HANDLING
+        // ==========================================
         let matchedKeyword = null;
-        for (const keyword of preApprovedInvoices.keys()) {
+        for (const [keyword, amount] of preApprovedInvoices.entries()) {
             if (text.toLowerCase().includes(keyword)) {
                 matchedKeyword = keyword;
                 break;
@@ -280,19 +261,19 @@ export function initTelegramBot(): void {
             const payUrl = getPaymentUrl(charge.id);
             const options = {
                 reply_markup: {
-                    inline_keyboard: [[{ text: `💳 Pay ${amount} USDC`, url: payUrl }]]
+                    inline_keyboard: [[{ text: `💳 Fund Retainer (${amount} USDC)`, url: payUrl }]]
                 }
             };
-            budgetedSend(chatId, `Hello. Based on your request regarding **${matchedKeyword}**, the professional fee is ${amount} USDC.\n\nPay here: ${payUrl}`, options);
-            store.addActivity("telegram", `Auto-replied to client for ${matchedKeyword} — charge created`);
+            budgetedSend(chatId, `Hello. Regarding your inquiry about "${matchedKeyword}", the firm's standard retainer is <b>${amount} USDC</b>.\n\nYou may secure our services immediately via the portal below:`, options);
+            store.addActivity("telegram", `Auto-quoted client for ${matchedKeyword}`);
             return;
         }
 
-        budgetedSend(chatId, "Understood. I have notified the attorney to provide a quote for your inquiry. Please remain on standby.");
+        budgetedSend(chatId, "Thank you for reaching out. I am Citadelle, the autonomous intake agent for the firm. I have securely forwarded your inquiry to the managing partner. Please allow a moment for review.");
 
         if (ceoChatId) {
             clientsWaitingForPrice.set(ceoChatId, chatId);
-            budgetedSend(ceoChatId, `🔔 **New Client Inquiry** (@${msg.from?.username || "Client"})\n\n"_${text}_"\n\nHow much should I charge? (Reply with a number only)`);
+            budgetedSend(ceoChatId, `🔔 <b>New Client Intake</b> (@${msg.from?.username || "Client"})\n\n"<i>${text}</i>"\n\nPlease advise on the required retainer (Reply with a number in USDC only):`);
         }
       }
     });
@@ -307,11 +288,11 @@ export function initTelegramBot(): void {
         if (isCEO) {
             if (data === "ignore") {
                 bot?.answerCallbackQuery(query.id);
-                budgetedSend(chatId, "Action dismissed. System on standby.");
+                budgetedSend(chatId, "Noted. System standing by.");
             }
             if (data === "manual_bill") {
                 bot?.answerCallbackQuery(query.id);
-                budgetedSend(chatId, "Enter the invoice amount in USDC (number only).\nI will create a Locus-powered charge and generate a payment link.");
+                budgetedSend(chatId, "Please enter the required retainer amount in USDC (numbers only).\nI will generate a secure Locus payment portal.");
                 clientsWaitingForPrice.set(chatId, chatId);
             }
         }
@@ -323,12 +304,9 @@ export function initTelegramBot(): void {
             if (charge) {
                 const walletAddr = charge.locusWalletAddress || getAgentWallet();
                 const isLocus = !!charge.locusWalletAddress;
-                budgetedSend(chatId, `💳 Payment Details:\n\nAmount: ${charge.amount} USDC\nWallet: ${walletAddr}\nNetwork: Base (Chain ID 8453)\nToken: USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)${isLocus ? "\n💎 Powered by Locus" : ""}\n\nSend exactly ${charge.amount} USDC to the wallet above on Base network.`);
+                budgetedSend(chatId, `💳 <b>Payment Details:</b>\n\nAmount: ${charge.amount} USDC\nWallet: <code>${walletAddr}</code>\nNetwork: Base (Chain ID 8453)\nToken: USDC${isLocus ? "\n🛡️ Secured by Locus" : ""}\n\nPlease remit exactly ${charge.amount} USDC to the wallet above.`);
             } else {
-                budgetedSend(chatId, "Charge not found or expired.");
-            }
-            if (ceoChatId && chatId !== ceoChatId) {
-                budgetedSend(ceoChatId, `💰 Client viewed payment details for charge ${chargeId}.`);
+                budgetedSend(chatId, "This invoice is no longer active or has expired.");
             }
         }
     });
