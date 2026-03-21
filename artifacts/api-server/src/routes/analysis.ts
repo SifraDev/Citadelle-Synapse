@@ -9,7 +9,7 @@ import { recordActionReceipt } from "../lib/erc8004.js";
 import { getVeniceDiemCost, estimateTokensFromText } from "../lib/budget.js";
 
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+const { PDFParse, VerbosityLevel } = require("pdf-parse");
 
 const router: IRouter = Router();
 
@@ -81,8 +81,9 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
             extractedText = file.buffer.toString("utf-8");
         } else {
             const dataBuffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
-            const parsed = await pdfParse(dataBuffer);
-            extractedText = parsed.text;
+            const parser = new PDFParse({ data: dataBuffer, verbosity: VerbosityLevel.ERRORS });
+            const result = await parser.getText();
+            extractedText = result.text;
         }
 
         if (extractedText && extractedText.trim()) {
@@ -185,6 +186,20 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
   res.end();
 }
 
-router.post("/analyze", x402Middleware, upload.array("files", 20), handleAnalysis);
+function multerErrorHandler(req: Request, res: Response, next: Function) {
+  upload.array("files", 20)(req, res, (err: any) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        res.status(400).json({ error: `Upload error: ${err.message}` });
+      } else {
+        res.status(400).json({ error: err.message || "File upload failed" });
+      }
+      return;
+    }
+    next();
+  });
+}
+
+router.post("/analyze", x402Middleware, multerErrorHandler, handleAnalysis);
 
 export default router;

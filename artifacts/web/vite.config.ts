@@ -27,7 +27,11 @@ if (!basePath) {
   );
 }
 
-const proxyNonce = crypto.randomBytes(16).toString("hex");
+const proxyNonce = crypto
+  .createHash("sha256")
+  .update(process.env.ADMIN_API_TOKEN || "fallback-dev-token")
+  .digest("hex")
+  .slice(0, 32);
 const proxyPath = `/_p/${proxyNonce}/analyze`;
 
 export default defineConfig({

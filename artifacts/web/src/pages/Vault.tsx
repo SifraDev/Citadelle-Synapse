@@ -65,7 +65,7 @@ export default function Vault() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: { 'application/pdf': ['.pdf'], 'text/plain': ['.txt'] },
     disabled: isAnalyzing
   });
 
@@ -144,7 +144,7 @@ export default function Vault() {
             <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center mb-4">
               <UploadCloud className={`h-6 w-6 ${isDragActive ? "text-primary" : "text-muted-foreground"}`} />
             </div>
-            <p className="font-medium text-foreground text-sm">Drag & drop PDFs here</p>
+            <p className="font-medium text-foreground text-sm">Drag & drop PDFs or TXT files here</p>
             <p className="text-xs text-muted-foreground mt-1">or click to browse files</p>
           </div>
 
