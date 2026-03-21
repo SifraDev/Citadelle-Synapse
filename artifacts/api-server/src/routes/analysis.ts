@@ -76,14 +76,25 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
       try {
         let extractedText = "";
 
-        // MODO SEGURO: Si es TXT lo lee directo, si es PDF usa el parser asegurando el buffer
         if (file.mimetype === "text/plain" || file.originalname.endsWith('.txt')) {
             extractedText = file.buffer.toString("utf-8");
         } else {
             const dataBuffer = Buffer.isBuffer(file.buffer) ? file.buffer : Buffer.from(file.buffer);
-            const parser = new PDFParse({ data: dataBuffer, verbosity: VerbosityLevel.ERRORS });
-            const result = await parser.getText();
-            extractedText = result.text;
+            if (dataBuffer.length === 0) {
+              throw new Error("PDF file is empty (0 bytes)");
+            }
+            let parser: InstanceType<typeof PDFParse> | null = null;
+            try {
+              parser = new PDFParse({ data: dataBuffer, verbosity: VerbosityLevel.ERRORS });
+              const result = await parser.getText();
+              if (result && typeof result.text === "string") {
+                extractedText = result.text.replace(/\n-- \d+ of \d+ --\n/g, "\n").trim();
+              }
+            } finally {
+              if (parser && typeof parser.destroy === "function") {
+                try { parser.destroy(); } catch {}
+              }
+            }
         }
 
         if (extractedText && extractedText.trim()) {
@@ -93,11 +104,12 @@ async function handleAnalysis(req: Request, res: Response): Promise<void> {
               message: `Extracted text from ${file.originalname}`,
             });
         } else {
-            throw new Error("Text was empty after parsing");
+            throw new Error("No readable text found — the PDF may be scanned or image-based");
         }
       } catch (err: any) {
-        console.error(`[PARSE ERROR] File: ${file.originalname}`, err);
-        sendSSE("error", { message: `Failed to parse ${file.originalname}` });
+        const reason = err.message || "Unknown parse error";
+        console.error(`[PARSE ERROR] File: ${file.originalname}`, reason);
+        sendSSE("error", { message: `Failed to parse ${file.originalname}: ${reason}` });
       }
 
       file.buffer = Buffer.alloc(0);

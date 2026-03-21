@@ -33,11 +33,13 @@ const proxyNonce = crypto
   .digest("hex")
   .slice(0, 32);
 const proxyPath = `/_p/${proxyNonce}/analyze`;
+const draftProxyPath = `/_p/${proxyNonce}/draft`;
 
 export default defineConfig({
   base: basePath,
   define: {
     __ANALYZE_PROXY_PATH__: JSON.stringify(proxyPath),
+    __DRAFT_PROXY_PATH__: JSON.stringify(draftProxyPath),
   },
   plugins: [
     react(),
@@ -77,6 +79,13 @@ export default defineConfig({
       [proxyPath]: {
         target: "http://localhost:8080",
         rewrite: () => "/api/analyze",
+        headers: {
+          Authorization: `Bearer ${process.env.ADMIN_API_TOKEN || ""}`,
+        },
+      },
+      [draftProxyPath]: {
+        target: "http://localhost:8080",
+        rewrite: () => "/api/draft",
         headers: {
           Authorization: `Bearer ${process.env.ADMIN_API_TOKEN || ""}`,
         },

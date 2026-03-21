@@ -32,14 +32,21 @@ export default function Vault() {
     if (!result) return;
     setIsGeneratingDraft(true);
     try {
-      const response = await fetch("/api/draft", {
+      const draftUrl = typeof __DRAFT_PROXY_PATH__ !== "undefined"
+        ? __DRAFT_PROXY_PATH__
+        : "/api/draft";
+      const response = await fetch(draftUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ analysisText: result, mode }),
       });
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Draft generation failed");
+        let errorMsg = "Draft generation failed";
+        try {
+          const err = await response.json();
+          if (err.error) errorMsg = err.error;
+        } catch {}
+        throw new Error(errorMsg);
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
