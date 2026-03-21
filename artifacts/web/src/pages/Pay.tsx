@@ -152,7 +152,7 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
           <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-display text-foreground">Venice AI Legal Platform</h1>
+          <h1 className="text-2xl font-display text-foreground">Citadelle Synapse</h1>
           <p className="text-muted-foreground text-sm mt-1">Secure Payment Request</p>
           {isLocusCharge && (
             <div className="flex items-center gap-1.5 justify-center mt-2 text-violet-400 text-xs font-medium">

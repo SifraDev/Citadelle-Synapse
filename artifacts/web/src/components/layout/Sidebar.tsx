@@ -29,8 +29,8 @@ export function Sidebar() {
           <Scale className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-display text-lg font-bold text-foreground leading-tight tracking-wide">Venice AI</h1>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Legal Platform</p>
+          <h1 className="font-display text-lg font-bold text-foreground leading-tight tracking-wide">Citadelle Synapse</h1>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Powered by Venice AI</p>
         </div>
       </div>
 
