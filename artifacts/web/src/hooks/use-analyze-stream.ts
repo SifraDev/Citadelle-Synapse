@@ -64,7 +64,12 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
       });
 
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`);
+        let errorMsg = response.statusText;
+        try {
+          const body = await response.json();
+          if (body.error) errorMsg = body.error;
+        } catch {}
+        throw new Error(`Analysis failed: ${errorMsg}`);
       }
 
       const reader = response.body?.getReader();
