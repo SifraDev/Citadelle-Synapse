@@ -8,7 +8,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const GITHUB_REPO_URL = process.env.GITHUB_REPO_URL || "https://github.com/SifraDev/Citadelle-Synapse";
 const VIDEO_URL = process.env.VIDEO_URL || "PASTE_YOUR_VIDEO_URL_HERE";
-const MOLTBOOK_POST_URL = process.env.MOLTBOOK_POST_URL || "PASTE_YOUR_MOLTBOOK_POST_URL_HERE";
+const MOLTBOOK_POST_URL = process.env.MOLTBOOK_POST_URL || "https://www.moltbook.com/posts/f4b7d70f-4a15-4798-8b5a-5daa8f763b3c";
 // ============================================================
 
 const API_BASE = "https://synthesis.devfolio.co";
