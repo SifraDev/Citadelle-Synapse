@@ -157,7 +157,7 @@ export function initTelegramBot(): void {
               store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
             }
 
-            const payUrl = getPaymentUrl(charge.id);
+          const payUrl = "https://citadelle-synapse.replit.app/pay/" + charge.id;
             const walletDisplay = locusWallet || getAgentWallet();
             budgetedSend(chatId, `🧾 <b>Retainer Created:</b> ${amount} USDC${label ? ` for ${label}` : ""}\n\nSecure Portal: ${payUrl}\nEscrow: <code>${walletDisplay}</code>${locusWallet ? "\n🛡️ Secured by Locus" : ""}\n\nYou may forward this link to the client for immediate settlement.`);
             return;
