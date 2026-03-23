@@ -32,4 +32,3 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ADMIN_API_TOKEN = "58608c0e77248d2dfc08bbb8433d4606f2ca821f5526a2f0dab31914797ae3f0"
-MOLTBOOK_API_KEY = "moltbook_sk_IzznD-5AXuRMP0MbuDozHtn8BrT5GnUi"
