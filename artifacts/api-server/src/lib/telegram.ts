@@ -31,35 +31,42 @@ const clientsAlreadyWaiting = new Set<string>();
 const preApprovedInvoices = new Map<string, number>();
 const INQUIRY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
-function peekNextInquiry(): PendingInquiry | undefined {
-  while (pendingClientInquiries.length > 0) {
-    const oldest = pendingClientInquiries[0];
-    if (Date.now() - oldest.timestamp > INQUIRY_TIMEOUT_MS) {
-      pendingClientInquiries.shift();
-      clientsAlreadyWaiting.delete(oldest.clientChatId);
-      continue;
+function cleanExpiredInquiries(ceoChatId?: string): void {
+  let i = 0;
+  while (i < pendingClientInquiries.length) {
+    const entry = pendingClientInquiries[i];
+    if (Date.now() - entry.timestamp > INQUIRY_TIMEOUT_MS) {
+      pendingClientInquiries.splice(i, 1);
+      clientsAlreadyWaiting.delete(entry.clientChatId);
+      if (ceoChatId) {
+        budgetedSend(ceoChatId, `⏰ Inquiry from <b>${entry.clientName}</b> expired after 24h without a response and was removed from the queue.`);
+      }
+      budgetedSend(entry.clientChatId, `We apologize — your inquiry was not processed in time. Please reach out again and we will prioritize your request.`);
+    } else {
+      i++;
     }
-    return oldest;
   }
-  return undefined;
 }
 
-function popNextInquiry(): PendingInquiry | undefined {
-  while (pendingClientInquiries.length > 0) {
+function peekNextInquiry(ceoChatId?: string): PendingInquiry | undefined {
+  cleanExpiredInquiries(ceoChatId);
+  return pendingClientInquiries.length > 0 ? pendingClientInquiries[0] : undefined;
+}
+
+function popNextInquiry(ceoChatId?: string): PendingInquiry | undefined {
+  cleanExpiredInquiries(ceoChatId);
+  if (pendingClientInquiries.length > 0) {
     const oldest = pendingClientInquiries.shift()!;
     clientsAlreadyWaiting.delete(oldest.clientChatId);
-    if (Date.now() - oldest.timestamp > INQUIRY_TIMEOUT_MS) {
-      continue;
-    }
     return oldest;
   }
   return undefined;
 }
 
-function getQueueSummary(): string {
-  const valid = pendingClientInquiries.filter(i => Date.now() - i.timestamp <= INQUIRY_TIMEOUT_MS);
-  if (valid.length === 0) return "No pending client inquiries.";
-  return valid.map((i, idx) => `${idx + 1}. ${i.clientName} — "${i.message.substring(0, 60)}${i.message.length > 60 ? "..." : ""}"`).join("\n");
+function getQueueSummary(ceoChatId?: string): string {
+  cleanExpiredInquiries(ceoChatId);
+  if (pendingClientInquiries.length === 0) return "No pending client inquiries.";
+  return pendingClientInquiries.map((i, idx) => `${idx + 1}. ${i.clientName} — "${i.message.substring(0, 60)}${i.message.length > 60 ? "..." : ""}"`).join("\n");
 }
 
 function logOutgoing(recipient: string, text: string) {
@@ -157,11 +164,11 @@ export function initTelegramBot(): void {
         }
 
         if (text === "/skip") {
-            const skipped = popNextInquiry();
+            const skipped = popNextInquiry(chatId);
             if (skipped) {
               budgetedSend(chatId, `⏭️ Skipped inquiry from ${skipped.clientName}. ${pendingClientInquiries.length} remaining in queue.`);
               budgetedSend(skipped.clientChatId, "The managing partner has reviewed your inquiry and will follow up at a later time. No action is needed from you right now.");
-              const next = peekNextInquiry();
+              const next = peekNextInquiry(chatId);
               if (next) {
                 budgetedSend(chatId, `📋 Next in queue: <b>${next.clientName}</b>\n"<i>${next.message.substring(0, 200)}</i>"\n\nReply with a number (USDC) to set the retainer, or /skip to dismiss.`);
               }
@@ -172,13 +179,13 @@ export function initTelegramBot(): void {
         }
 
         if (text === "/queue") {
-            const summary = getQueueSummary();
+            const summary = getQueueSummary(chatId);
             budgetedSend(chatId, `📋 <b>Client Inquiry Queue</b>\n\n${summary}`);
             return;
         }
 
         if (pendingClientInquiries.length > 0 && !isNaN(Number(text)) && Number(text) > 0) {
-            const inquiry = popNextInquiry();
+            const inquiry = popNextInquiry(chatId);
             if (!inquiry) {
               budgetedSend(chatId, "No valid pending inquiries to price. The queue may have expired.");
               return;
@@ -193,16 +200,6 @@ export function initTelegramBot(): void {
             const payUrl = getPaymentUrl(charge.id);
             const walletDisplay = locusWallet || getAgentWallet();
 
-            const remaining = pendingClientInquiries.filter(i => Date.now() - i.timestamp <= INQUIRY_TIMEOUT_MS).length;
-            budgetedSend(chatId, `✅ Invoice for <b>${amount} USDC</b> sent to <b>${inquiry.clientName}</b>.${remaining > 0 ? `\n\n📋 ${remaining} more inquiry${remaining > 1 ? "ies" : "y"} waiting.` : ""}`);
-
-            if (remaining > 0) {
-              const next = peekNextInquiry();
-              if (next) {
-                budgetedSend(chatId, `Next: <b>${next.clientName}</b>\n"<i>${next.message.substring(0, 200)}</i>"\n\nReply with a number (USDC) or /skip.`);
-              }
-            }
-
             const options = {
                 reply_markup: {
                     inline_keyboard: [[{ text: `💳 Fund Retainer (${amount} USDC)`, url: payUrl }]]
@@ -210,6 +207,16 @@ export function initTelegramBot(): void {
             };
             budgetedSend(inquiry.clientChatId, `The managing partner has reviewed your file. The required retainer to proceed is <b>${amount} USDC</b>.\n\nPlease fund the secure escrow via the portal below:\n${payUrl}\n\nOr send ${amount} USDC directly to the firm's vault:\nWallet: <code>${walletDisplay}</code>\nNetwork: Base`, options);
             store.addActivity("payment", `Partner set retainer: ${amount} USDC for ${inquiry.clientName}`);
+
+            const remaining = pendingClientInquiries.length;
+            budgetedSend(chatId, `✅ Payment link sent to <b>${inquiry.clientName}</b> for <b>${amount} USDC</b>. Awaiting payment.${remaining > 0 ? `\n\n📋 ${remaining} more inquiry${remaining > 1 ? "ies" : "y"} waiting.` : ""}`);
+
+            if (remaining > 0) {
+              const next = peekNextInquiry(chatId);
+              if (next) {
+                budgetedSend(chatId, `Next: <b>${next.clientName}</b>\n"<i>${next.message.substring(0, 200)}</i>"\n\nReply with a number (USDC) or /skip.`);
+              }
+            }
             return;
         }
 
@@ -314,6 +321,8 @@ export function initTelegramBot(): void {
       } else {
         const clientName = msg.from?.first_name || msg.from?.username || `Client-${chatId.slice(-4)}`;
 
+        cleanExpiredInquiries(ceoChatId || undefined);
+
         if (clientsAlreadyWaiting.has(chatId)) {
           budgetedSend(chatId, `Thank you, ${clientName}. Your inquiry is currently being reviewed by the managing partner. You will be notified as soon as a decision is made.`);
           return;
@@ -375,7 +384,7 @@ export function initTelegramBot(): void {
             }
             if (data === "manual_bill") {
                 bot?.answerCallbackQuery(query.id);
-                const next = peekNextInquiry();
+                const next = peekNextInquiry(chatId);
                 if (next) {
                   budgetedSend(chatId, `Please enter the retainer amount in USDC for <b>${next.clientName}</b>.\n"<i>${next.message.substring(0, 100)}</i>"\n\nReply with a number, or /skip to dismiss.`);
                 } else {
