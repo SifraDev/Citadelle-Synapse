@@ -87,7 +87,6 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
             }
           }
         }
-      }
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) {

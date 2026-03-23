@@ -129,7 +129,6 @@ export default function Payments() {
             }
           }
         }
-      }
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) {

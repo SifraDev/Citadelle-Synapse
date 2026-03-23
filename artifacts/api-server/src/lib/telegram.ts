@@ -19,8 +19,48 @@ export let bot: TelegramBot | null = null;
 let botInfo: { username: string } | null = null;
 export let isInitialized = false;
 
-const clientsWaitingForPrice = new Map<string, string>();
+interface PendingInquiry {
+  clientChatId: string;
+  clientName: string;
+  message: string;
+  timestamp: number;
+}
+
+const pendingClientInquiries: PendingInquiry[] = [];
+const clientsAlreadyWaiting = new Set<string>();
 const preApprovedInvoices = new Map<string, number>();
+const INQUIRY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
+function peekNextInquiry(): PendingInquiry | undefined {
+  while (pendingClientInquiries.length > 0) {
+    const oldest = pendingClientInquiries[0];
+    if (Date.now() - oldest.timestamp > INQUIRY_TIMEOUT_MS) {
+      pendingClientInquiries.shift();
+      clientsAlreadyWaiting.delete(oldest.clientChatId);
+      continue;
+    }
+    return oldest;
+  }
+  return undefined;
+}
+
+function popNextInquiry(): PendingInquiry | undefined {
+  while (pendingClientInquiries.length > 0) {
+    const oldest = pendingClientInquiries.shift()!;
+    clientsAlreadyWaiting.delete(oldest.clientChatId);
+    if (Date.now() - oldest.timestamp > INQUIRY_TIMEOUT_MS) {
+      continue;
+    }
+    return oldest;
+  }
+  return undefined;
+}
+
+function getQueueSummary(): string {
+  const valid = pendingClientInquiries.filter(i => Date.now() - i.timestamp <= INQUIRY_TIMEOUT_MS);
+  if (valid.length === 0) return "No pending client inquiries.";
+  return valid.map((i, idx) => `${idx + 1}. ${i.clientName} — "${i.message.substring(0, 60)}${i.message.length > 60 ? "..." : ""}"`).join("\n");
+}
 
 function logOutgoing(recipient: string, text: string) {
   const label = recipient === process.env.TELEGRAM_CHAT_ID ? "Managing Partner" : `Client ${recipient}`;
@@ -116,12 +156,36 @@ export function initTelegramBot(): void {
             return;
         }
 
-        if (clientsWaitingForPrice.has(chatId) && !isNaN(Number(text))) {
-            const clientChatId = clientsWaitingForPrice.get(chatId)!;
-            const amount = Number(text);
-            clientsWaitingForPrice.delete(chatId);
+        if (text === "/skip") {
+            const skipped = popNextInquiry();
+            if (skipped) {
+              budgetedSend(chatId, `⏭️ Skipped inquiry from ${skipped.clientName}. ${pendingClientInquiries.length} remaining in queue.`);
+              budgetedSend(skipped.clientChatId, "The managing partner has reviewed your inquiry and will follow up at a later time. No action is needed from you right now.");
+              const next = peekNextInquiry();
+              if (next) {
+                budgetedSend(chatId, `📋 Next in queue: <b>${next.clientName}</b>\n"<i>${next.message.substring(0, 200)}</i>"\n\nReply with a number (USDC) to set the retainer, or /skip to dismiss.`);
+              }
+            } else {
+              budgetedSend(chatId, "No pending client inquiries to skip.");
+            }
+            return;
+        }
 
-            const charge = store.addCharge(String(amount), `client-intake-${clientChatId}`);
+        if (text === "/queue") {
+            const summary = getQueueSummary();
+            budgetedSend(chatId, `📋 <b>Client Inquiry Queue</b>\n\n${summary}`);
+            return;
+        }
+
+        if (pendingClientInquiries.length > 0 && !isNaN(Number(text)) && Number(text) > 0) {
+            const inquiry = popNextInquiry();
+            if (!inquiry) {
+              budgetedSend(chatId, "No valid pending inquiries to price. The queue may have expired.");
+              return;
+            }
+            const amount = Number(text);
+
+            const charge = store.addCharge(String(amount), `client-intake-${inquiry.clientName}`);
             const locusWallet = await getLocusWalletAddress();
             if (locusWallet) {
               store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
@@ -129,15 +193,23 @@ export function initTelegramBot(): void {
             const payUrl = getPaymentUrl(charge.id);
             const walletDisplay = locusWallet || getAgentWallet();
 
-            budgetedSend(chatId, `✅ Understood. Retainer generated for ${amount} USDC. The client has been notified and provided with the secure payment link.`);
+            const remaining = pendingClientInquiries.filter(i => Date.now() - i.timestamp <= INQUIRY_TIMEOUT_MS).length;
+            budgetedSend(chatId, `✅ Invoice for <b>${amount} USDC</b> sent to <b>${inquiry.clientName}</b>.${remaining > 0 ? `\n\n📋 ${remaining} more inquiry${remaining > 1 ? "ies" : "y"} waiting.` : ""}`);
+
+            if (remaining > 0) {
+              const next = peekNextInquiry();
+              if (next) {
+                budgetedSend(chatId, `Next: <b>${next.clientName}</b>\n"<i>${next.message.substring(0, 200)}</i>"\n\nReply with a number (USDC) or /skip.`);
+              }
+            }
 
             const options = {
                 reply_markup: {
                     inline_keyboard: [[{ text: `💳 Fund Retainer (${amount} USDC)`, url: payUrl }]]
                 }
             };
-            budgetedSend(clientChatId, `The managing partner has reviewed your file. The required retainer to proceed is <b>${amount} USDC</b>.\n\nPlease fund the secure escrow via the portal below:\n${payUrl}\n\nOr send ${amount} USDC directly to the firm's vault:\nWallet: <code>${walletDisplay}</code>\nNetwork: Base`, options);
-            store.addActivity("payment", `Partner set retainer: ${amount} USDC for client`);
+            budgetedSend(inquiry.clientChatId, `The managing partner has reviewed your file. The required retainer to proceed is <b>${amount} USDC</b>.\n\nPlease fund the secure escrow via the portal below:\n${payUrl}\n\nOr send ${amount} USDC directly to the firm's vault:\nWallet: <code>${walletDisplay}</code>\nNetwork: Base`, options);
+            store.addActivity("payment", `Partner set retainer: ${amount} USDC for ${inquiry.clientName}`);
             return;
         }
 
@@ -240,9 +312,13 @@ export function initTelegramBot(): void {
         budgetedSend(chatId, `Message securely logged in the firm's records.\n\nShall I prepare a payment portal for a client, or is this just an internal memo?`, options);
 
       } else {
-        // ==========================================
-        // CLIENT INTAKE HANDLING
-        // ==========================================
+        const clientName = msg.from?.first_name || msg.from?.username || `Client-${chatId.slice(-4)}`;
+
+        if (clientsAlreadyWaiting.has(chatId)) {
+          budgetedSend(chatId, `Thank you, ${clientName}. Your inquiry is currently being reviewed by the managing partner. You will be notified as soon as a decision is made.`);
+          return;
+        }
+
         let matchedKeyword = null;
         for (const [keyword, amount] of preApprovedInvoices.entries()) {
             if (text.toLowerCase().includes(keyword)) {
@@ -253,7 +329,7 @@ export function initTelegramBot(): void {
 
         if (matchedKeyword) {
             const amount = preApprovedInvoices.get(matchedKeyword)!;
-            const charge = store.addCharge(String(amount), `auto-${matchedKeyword}-${chatId}`);
+            const charge = store.addCharge(String(amount), `auto-${matchedKeyword}-${clientName}`);
             const locusWallet = await getLocusWalletAddress();
             if (locusWallet) {
               store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
@@ -264,16 +340,23 @@ export function initTelegramBot(): void {
                     inline_keyboard: [[{ text: `💳 Fund Retainer (${amount} USDC)`, url: payUrl }]]
                 }
             };
-            budgetedSend(chatId, `Hello. Regarding your inquiry about "${matchedKeyword}", the firm's standard retainer is <b>${amount} USDC</b>.\n\nYou may secure our services immediately via the portal below:`, options);
-            store.addActivity("telegram", `Auto-quoted client for ${matchedKeyword}`);
+            budgetedSend(chatId, `Hello, ${clientName}. Regarding your inquiry about "${matchedKeyword}", the firm's standard retainer is <b>${amount} USDC</b>.\n\nYou may secure our services immediately via the portal below:`, options);
+            store.addActivity("telegram", `Auto-quoted ${clientName} for ${matchedKeyword}`);
             return;
         }
 
-        budgetedSend(chatId, "Thank you for reaching out. I am Citadelle, the autonomous intake agent for the firm. I have securely forwarded your inquiry to the managing partner. Please allow a moment for review.");
+        budgetedSend(chatId, `Thank you for reaching out, ${clientName}. I am Citadelle, the autonomous intake agent for the firm. Your inquiry has been securely forwarded to the managing partner for review. You will receive a response shortly.`);
 
         if (ceoChatId) {
-            clientsWaitingForPrice.set(ceoChatId, chatId);
-            budgetedSend(ceoChatId, `🔔 <b>New Client Intake</b> (@${msg.from?.username || "Client"})\n\n"<i>${text}</i>"\n\nPlease advise on the required retainer (Reply with a number in USDC only):`);
+            pendingClientInquiries.push({
+              clientChatId: chatId,
+              clientName,
+              message: text,
+              timestamp: Date.now(),
+            });
+            clientsAlreadyWaiting.add(chatId);
+            const queuePos = pendingClientInquiries.length;
+            budgetedSend(ceoChatId, `🔔 <b>New Client Intake</b> from <b>${clientName}</b> (@${msg.from?.username || "N/A"})${queuePos > 1 ? ` [Queue position: #${queuePos}]` : ""}\n\n"<i>${text}</i>"\n\nReply with a number (USDC) to set the retainer, or /skip to dismiss.`);
         }
       }
     });
@@ -292,8 +375,12 @@ export function initTelegramBot(): void {
             }
             if (data === "manual_bill") {
                 bot?.answerCallbackQuery(query.id);
-                budgetedSend(chatId, "Please enter the required retainer amount in USDC (numbers only).\nI will generate a secure Locus payment portal.");
-                clientsWaitingForPrice.set(chatId, chatId);
+                const next = peekNextInquiry();
+                if (next) {
+                  budgetedSend(chatId, `Please enter the retainer amount in USDC for <b>${next.clientName}</b>.\n"<i>${next.message.substring(0, 100)}</i>"\n\nReply with a number, or /skip to dismiss.`);
+                } else {
+                  budgetedSend(chatId, "No pending client inquiries. Use /charge <amount> [label] to create a standalone invoice.");
+                }
             }
         }
 
