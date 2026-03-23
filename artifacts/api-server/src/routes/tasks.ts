@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { store } from "../lib/store.js";
-import { sendMessage } from "../lib/telegram.js";
+import { sendMessage, getPaymentUrl } from "../lib/telegram.js";
 import { streamAnalysis } from "../lib/venice.js";
 
 const router: IRouter = Router();
@@ -164,8 +164,7 @@ async function executeTask(task: import("../lib/store.js").ScheduledTask): Promi
         if (locusWallet) {
           store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
         }
-        const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
-        const payUrl = domain ? `https://${domain}/pay/${charge.id}` : `/pay/${charge.id}`;
+        const payUrl = getPaymentUrl(charge.id);
         if (targetChat) {
           await sendMessage(
             `💳 <b>Payment Request</b>\n\nAmount: ${amount} USDC\nPayment Link: <a href="${payUrl}">${payUrl}</a>${locusWallet ? "\n💎 <i>Powered by Locus</i>" : ""}\n\nClick the link above to pay via MetaMask on Base network.`,

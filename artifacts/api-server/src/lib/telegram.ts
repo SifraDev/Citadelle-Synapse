@@ -7,10 +7,11 @@ import { getDelegationStatus } from "./delegation.js";
 import { getIdentityStatus, checkRegistration, registerAgent } from "./erc8004.js";
 import { trackCall, canCall } from "./budget.js";
 
-function getPaymentUrl(chargeId: string): string {
-  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
-  if (domain) {
-    return `https://${domain}/pay/${chargeId}`;
+export function getPaymentUrl(chargeId: string): string {
+  const domain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || "";
+  const host = domain.includes(",") ? domain.split(",")[0].trim() : domain.trim();
+  if (host) {
+    return `https://${host}/pay/${chargeId}`;
   }
   return `/pay/${chargeId}`;
 }
@@ -157,7 +158,7 @@ export function initTelegramBot(): void {
               store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
             }
 
-          const payUrl = "https://citadelle-synapse.replit.app/pay/" + charge.id;
+          const payUrl = getPaymentUrl(charge.id);
             const walletDisplay = locusWallet || getAgentWallet();
             budgetedSend(chatId, `🧾 <b>Retainer Created:</b> ${amount} USDC${label ? ` for ${label}` : ""}\n\nSecure Portal: ${payUrl}\nEscrow: <code>${walletDisplay}</code>${locusWallet ? "\n🛡️ Secured by Locus" : ""}\n\nYou may forward this link to the client for immediate settlement.`);
             return;

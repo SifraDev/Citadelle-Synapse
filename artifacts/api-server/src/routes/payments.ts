@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { store } from "../lib/store.js";
 import { getUsdcBalance, getEthBalance, getVvvBalance, getAgentWallet, getUsdcAddress, verifyTransaction } from "../lib/crypto.js";
-import { sendMessage } from "../lib/telegram.js";
+import { sendMessage, getPaymentUrl } from "../lib/telegram.js";
 import {
   isLocusConfigured,
   getLocusBalance,
@@ -88,8 +88,7 @@ router.post("/payments/charge", async (req, res): Promise<void> => {
     store.updateCharge(charge.id, { locusWalletAddress: locusWallet });
   }
 
-  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS || "";
-  const payUrl = domain ? `https://${domain}/pay/${charge.id}` : `/pay/${charge.id}`;
+  const payUrl = getPaymentUrl(charge.id);
 
   const walletDisplay = locusWallet || getAgentWallet();
   await sendMessage(
