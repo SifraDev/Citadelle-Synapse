@@ -73,6 +73,7 @@ export default function Payments() {
   const [chargeLabel, setChargeLabel] = useState("");
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
   const [payingChargeId, setPayingChargeId] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -86,8 +87,14 @@ export default function Payments() {
   const vvvBalance = walletInfo?.vvvBalance || "0";
 
   const connectWallet = useCallback(async () => {
+    setWalletError(null);
     if (!window.ethereum) {
-      alert("MetaMask not detected. Please install MetaMask to make payments.");
+      const inIframe = window.self !== window.top;
+      if (inIframe) {
+        setWalletError("iframe");
+      } else {
+        setWalletError("no-metamask");
+      }
       return;
     }
     setConnecting(true);
@@ -114,12 +121,20 @@ export default function Payments() {
                   blockExplorerUrls: ["https://basescan.org"],
                 }],
               });
+            } else {
+              setWalletError("Could not switch to Base network. Please switch manually in MetaMask.");
             }
           }
         }
       }
-    } catch (err) {
-      console.error("Wallet connect failed:", err);
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 4001) {
+        setWalletError("Connection rejected. Please approve the MetaMask request to continue.");
+      } else {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setWalletError(`Connection failed: ${msg}`);
+      }
     } finally {
       setConnecting(false);
     }
@@ -127,7 +142,7 @@ export default function Payments() {
 
   const payCharge = useCallback(async (chargeId: string, amount: string, targetWallet?: string) => {
     if (!window.ethereum || !connectedAddress) {
-      alert("Connect your wallet first.");
+      connectWallet();
       return;
     }
     setPayingChargeId(chargeId);
@@ -173,7 +188,7 @@ export default function Payments() {
         setPayingChargeId(null);
       }, 5000);
     }
-  }, [connectedAddress, walletInfo, confirmPayment, refetchPayments, refetchCharges, refetchWallet]);
+  }, [connectedAddress, walletInfo, confirmPayment, refetchPayments, refetchCharges, refetchWallet, connectWallet]);
 
   const handleCreateCharge = async () => {
     const amount = parseFloat(chargeAmount);
@@ -186,11 +201,11 @@ export default function Payments() {
 
   const handleGrantDelegation = async () => {
     if (!window.ethereum || !connectedAddress) {
-      alert("Connect your wallet first to sign a delegation.");
+      connectWallet();
       return;
     }
     if (!walletInfo?.address) {
-      alert("Wallet info not loaded yet.");
+      setWalletError("Wallet info not loaded yet. Please wait and try again.");
       return;
     }
 
@@ -311,11 +326,45 @@ export default function Payments() {
               className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition disabled:opacity-50"
             >
               {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-              Connect MetaMask
+              {connecting ? "Connecting..." : "Connect MetaMask"}
             </button>
           )}
         </div>
       </header>
+
+      {walletError && (
+        <div className={`rounded-xl p-4 text-sm ${walletError === "iframe" || walletError === "no-metamask" ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-destructive/10 border border-destructive/20 text-destructive"}`}>
+          {walletError === "iframe" && (
+            <>
+              <p className="font-medium mb-1">MetaMask cannot connect inside an iframe</p>
+              <p className="text-xs opacity-80 mb-2">Open this page in a new browser tab where MetaMask is installed.</p>
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-medium"
+              >
+                Open in new tab <ExternalLink className="w-3 h-3" />
+              </a>
+            </>
+          )}
+          {walletError === "no-metamask" && (
+            <>
+              <p className="font-medium mb-1">MetaMask not detected</p>
+              <p className="text-xs opacity-80 mb-2">Install the MetaMask browser extension to connect your wallet.</p>
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-medium"
+              >
+                Install MetaMask <ExternalLink className="w-3 h-3" />
+              </a>
+            </>
+          )}
+          {walletError !== "iframe" && walletError !== "no-metamask" && walletError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {uniswapConfigured && (
