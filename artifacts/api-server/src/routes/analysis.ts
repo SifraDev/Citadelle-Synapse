@@ -8,7 +8,8 @@ import { x402Middleware, getX402PricingInfo, type X402PaymentContext } from "../
 import { recordActionReceipt } from "../lib/erc8004.js";
 import { getVeniceDiemCost, estimateTokensFromText } from "../lib/budget.js";
 
-const require = createRequire(import.meta.url);
+// @ts-ignore
+const require = createRequire(typeof import.meta !== 'undefined' && import.meta.url ? import.meta.url : 'file://' + __filename);
 const { PDFParse, VerbosityLevel } = require("pdf-parse");
 
 const router: IRouter = Router();
