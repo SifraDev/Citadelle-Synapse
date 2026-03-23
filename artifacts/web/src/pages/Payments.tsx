@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { BrowserProvider } from "ethers";
 import {
   useGetPayments,
   useGetWalletInfo,
@@ -12,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { truncateAddress } from "@/lib/utils";
+import { connectWalletRobust, sendUsdcTransfer, signTypedDataV4, getEthereumProvider } from "@/lib/wallet";
 import {
   Wallet,
   ExternalLink,
@@ -34,29 +36,6 @@ import {
   Gem,
   Gauge,
 } from "lucide-react";
-
-const BASE_CHAIN_ID = 8453;
-const USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const USDC_DECIMALS = 6;
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, handler: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
-      isMetaMask?: boolean;
-    };
-  }
-}
-
-function encodeTransferData(to: string, amount: string): string {
-  const methodId = "0xa9059cbb";
-  const paddedTo = to.slice(2).toLowerCase().padStart(64, "0");
-  const rawAmount = BigInt(Math.round(parseFloat(amount) * 10 ** USDC_DECIMALS));
-  const paddedAmount = rawAmount.toString(16).padStart(64, "0");
-  return methodId + paddedTo + paddedAmount;
-}
 
 export default function Payments() {
   const { data: payments, isLoading: loadingPayments, refetch: refetchPayments } = useGetPayments({ limit: 50 }, { query: { refetchInterval: 10000 } });
@@ -81,6 +60,8 @@ export default function Payments() {
   const [dailyLimit, setDailyLimit] = useState("50");
   const [expiryHours, setExpiryHours] = useState("24");
 
+  const providerRef = useRef<BrowserProvider | null>(null);
+
   const locusData = walletInfo?.locus;
   const locusConnected = locusData?.connected === true;
   const uniswapConfigured = walletInfo?.uniswapConfigured === true;
@@ -88,7 +69,7 @@ export default function Payments() {
 
   const connectWallet = useCallback(async () => {
     setWalletError(null);
-    if (!window.ethereum) {
+    if (!getEthereumProvider()) {
       const inIframe = window.self !== window.top;
       if (inIframe) {
         setWalletError("iframe");
@@ -99,36 +80,9 @@ export default function Payments() {
     }
     setConnecting(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
-      if (!accounts || accounts.length === 0) {
-        setWalletError("No accounts returned. Please unlock MetaMask and try again.");
-        return;
-      }
-      setConnectedAddress(accounts[0]);
-      const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
-      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }],
-            });
-          } catch (switchErr: unknown) {
-            if ((switchErr as { code?: number })?.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                  chainId: "0x" + BASE_CHAIN_ID.toString(16),
-                  chainName: "Base",
-                  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                  rpcUrls: ["https://mainnet.base.org"],
-                  blockExplorerUrls: ["https://basescan.org"],
-                }],
-              });
-            } else {
-              setWalletError("Could not switch to Base network. Please switch manually in MetaMask.");
-            }
-          }
-        }
+      const { address, provider } = await connectWalletRobust();
+      setConnectedAddress(address);
+      providerRef.current = provider;
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) {
@@ -143,34 +97,30 @@ export default function Payments() {
   }, []);
 
   const payCharge = useCallback(async (chargeId: string, amount: string, targetWallet?: string) => {
-    if (!window.ethereum || !connectedAddress) {
+    if (!connectedAddress) {
       connectWallet();
       return;
+    }
+    if (!providerRef.current) {
+      try {
+        const { provider } = await connectWalletRobust();
+        providerRef.current = provider;
+      } catch {
+        setTxStatus("Error: Please reconnect your wallet.");
+        return;
+      }
     }
     setPayingChargeId(chargeId);
     setTxStatus("Preparing transaction...");
     try {
-      const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
-      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
-        setTxStatus("Switching to Base network...");
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }],
-        });
-      }
-
       setTxStatus("Sending USDC transfer...");
       const payTo = targetWallet || walletInfo?.address || "";
-      const data = encodeTransferData(payTo, amount);
-      const txHash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: connectedAddress,
-          to: USDC_CONTRACT,
-          data,
-          value: "0x0",
-        }],
-      }) as string;
+      const txHash = await sendUsdcTransfer(
+        providerRef.current,
+        connectedAddress,
+        payTo,
+        amount
+      );
 
       setTxStatus("Confirming payment...");
       await confirmPayment({ data: { txHash, chargeId } });
@@ -202,13 +152,22 @@ export default function Payments() {
   };
 
   const handleGrantDelegation = async () => {
-    if (!window.ethereum || !connectedAddress) {
+    if (!connectedAddress) {
       connectWallet();
       return;
     }
     if (!walletInfo?.address) {
       setWalletError("Wallet info not loaded yet. Please wait and try again.");
       return;
+    }
+    if (!providerRef.current) {
+      try {
+        const { provider } = await connectWalletRobust();
+        providerRef.current = provider;
+      } catch {
+        alert("Please reconnect your wallet.");
+        return;
+      }
     }
 
     setDelegationLoading(true);
@@ -249,10 +208,7 @@ export default function Payments() {
         },
       });
 
-      const signature = await window.ethereum.request({
-        method: "eth_signTypedData_v4",
-        params: [connectedAddress, msgParams],
-      }) as string;
+      const signature = await signTypedDataV4(providerRef.current, connectedAddress, msgParams);
 
       await submitDelegation({
         data: {

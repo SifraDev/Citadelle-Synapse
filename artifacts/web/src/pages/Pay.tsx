@@ -1,6 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { BrowserProvider } from "ethers";
 import { useGetCharge, useConfirmPayment } from "@workspace/api-client-react";
 import { truncateAddress } from "@/lib/utils";
+import { connectWalletRobust, sendUsdcTransfer, getEthereumProvider } from "@/lib/wallet";
 import {
   Wallet,
   ExternalLink,
@@ -12,27 +14,6 @@ import {
   Diamond,
 } from "lucide-react";
 
-const BASE_CHAIN_ID = 8453;
-const USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const USDC_DECIMALS = 6;
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-    };
-  }
-}
-
-function encodeTransferData(to: string, amount: string): string {
-  const methodId = "0xa9059cbb";
-  const paddedTo = to.slice(2).toLowerCase().padStart(64, "0");
-  const rawAmount = BigInt(Math.round(parseFloat(amount) * 10 ** USDC_DECIMALS));
-  const paddedAmount = rawAmount.toString(16).padStart(64, "0");
-  return methodId + paddedTo + paddedAmount;
-}
-
 export default function Pay({ params }: { params: { chargeId: string } }) {
   const chargeId = params.chargeId;
   const { data: charge, isLoading, error } = useGetCharge(chargeId, { query: { retry: false, refetchInterval: 5000 } });
@@ -43,10 +24,11 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
   const [walletError, setWalletError] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const providerRef = useRef<BrowserProvider | null>(null);
 
   const connectWallet = useCallback(async () => {
     setWalletError(null);
-    if (!window.ethereum) {
+    if (!getEthereumProvider()) {
       const inIframe = window.self !== window.top;
       if (inIframe) {
         setWalletError("iframe");
@@ -57,36 +39,9 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
     }
     setConnecting(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
-      if (!accounts || accounts.length === 0) {
-        setWalletError("No accounts returned. Please unlock MetaMask and try again.");
-        return;
-      }
-      setConnectedAddress(accounts[0]);
-      const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
-      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }],
-            });
-          } catch (switchErr: unknown) {
-            if ((switchErr as { code?: number })?.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                  chainId: "0x" + BASE_CHAIN_ID.toString(16),
-                  chainName: "Base",
-                  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                  rpcUrls: ["https://mainnet.base.org"],
-                  blockExplorerUrls: ["https://basescan.org"],
-                }],
-              });
-            } else {
-              setWalletError("Could not switch to Base network. Please switch manually in MetaMask.");
-            }
-          }
-        }
+      const { address, provider } = await connectWalletRobust();
+      setConnectedAddress(address);
+      providerRef.current = provider;
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 4001) {
@@ -101,29 +56,25 @@ export default function Pay({ params }: { params: { chargeId: string } }) {
   }, []);
 
   const handlePay = useCallback(async () => {
-    if (!window.ethereum || !connectedAddress || !charge) return;
+    if (!connectedAddress || !charge) return;
+    if (!providerRef.current) {
+      try {
+        const { provider } = await connectWalletRobust();
+        providerRef.current = provider;
+      } catch {
+        setTxStatus("Error: Please connect your wallet first.");
+        return;
+      }
+    }
     setTxStatus("Preparing transaction...");
     try {
-      const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
-      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
-        setTxStatus("Switching to Base network...");
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }],
-        });
-      }
-
       setTxStatus("Sending USDC transfer...");
-      const data = encodeTransferData(charge.walletAddress, charge.amount);
-      const hash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: connectedAddress,
-          to: USDC_CONTRACT,
-          data,
-          value: "0x0",
-        }],
-      }) as string;
+      const hash = await sendUsdcTransfer(
+        providerRef.current,
+        connectedAddress,
+        charge.walletAddress,
+        charge.amount
+      );
 
       setTxHash(hash);
       setTxStatus("Verifying payment on-chain...");
