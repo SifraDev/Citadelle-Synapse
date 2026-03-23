@@ -100,10 +100,13 @@ export default function Payments() {
     setConnecting(true);
     try {
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
-      if (accounts.length > 0) {
-        setConnectedAddress(accounts[0]);
-        const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
-        if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
+      if (!accounts || accounts.length === 0) {
+        setWalletError("No accounts returned. Please unlock MetaMask and try again.");
+        return;
+      }
+      setConnectedAddress(accounts[0]);
+      const chainId = await window.ethereum.request({ method: "eth_chainId" }) as string;
+      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
           try {
             await window.ethereum.request({
               method: "wallet_switchEthereumChain",
