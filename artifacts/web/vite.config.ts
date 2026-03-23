@@ -27,19 +27,22 @@ if (!basePath) {
   );
 }
 
+const adminToken = process.env.ADMIN_API_TOKEN || "fallback-dev-token";
 const proxyNonce = crypto
   .createHash("sha256")
-  .update(process.env.ADMIN_API_TOKEN || "fallback-dev-token")
+  .update(adminToken)
   .digest("hex")
   .slice(0, 32);
 const proxyPath = `/_p/${proxyNonce}/analyze`;
 const draftProxyPath = `/_p/${proxyNonce}/draft`;
 
+const isProd = process.env.NODE_ENV === "production";
+
 export default defineConfig({
   base: basePath,
   define: {
-    __ANALYZE_PROXY_PATH__: JSON.stringify(proxyPath),
-    __DRAFT_PROXY_PATH__: JSON.stringify(draftProxyPath),
+    __ANALYZE_PROXY_PATH__: JSON.stringify(isProd ? "/api/analyze" : proxyPath),
+    __DRAFT_PROXY_PATH__: JSON.stringify(isProd ? "/api/draft" : draftProxyPath),
   },
   plugins: [
     react(),

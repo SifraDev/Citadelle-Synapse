@@ -63,9 +63,21 @@ function buildPaymentRequiredResponse() {
 
 function isInternalRequest(req: Request): boolean {
   const adminToken = process.env.ADMIN_API_TOKEN;
-  if (!adminToken) return false;
-  const authHeader = req.headers.authorization;
-  return authHeader === `Bearer ${adminToken}`;
+  if (adminToken) {
+    const authHeader = req.headers.authorization;
+    if (authHeader === `Bearer ${adminToken}`) return true;
+  }
+
+  const referer = req.headers.referer || req.headers.origin || "";
+  const deployedDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || "";
+  if (deployedDomain && referer) {
+    const domainList = deployedDomain.split(",").map((d: string) => d.trim()).filter(Boolean);
+    for (const domain of domainList) {
+      if (referer.includes(domain)) return true;
+    }
+  }
+
+  return false;
 }
 
 export interface X402PaymentContext {
