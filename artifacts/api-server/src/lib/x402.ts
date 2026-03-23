@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { createHash } from "crypto";
 import { getAgentWallet, getUsdcAddress, verifyTransaction } from "./crypto.js";
 import { addAgentLogEntry } from "./erc8004.js";
 import { store } from "./store.js";
@@ -63,18 +64,17 @@ function buildPaymentRequiredResponse() {
 
 function isInternalRequest(req: Request): boolean {
   const adminToken = process.env.ADMIN_API_TOKEN;
-  if (adminToken) {
-    const authHeader = req.headers.authorization;
-    if (authHeader === `Bearer ${adminToken}`) return true;
-  }
+  if (!adminToken) return false;
 
-  const referer = req.headers.referer || req.headers.origin || "";
-  const deployedDomain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || "";
-  if (deployedDomain && referer) {
-    const domainList = deployedDomain.split(",").map((d: string) => d.trim()).filter(Boolean);
-    for (const domain of domainList) {
-      if (referer.includes(domain)) return true;
-    }
+  const authHeader = req.headers.authorization;
+  if (authHeader === `Bearer ${adminToken}`) return true;
+
+  const dashboardToken = req.headers["x-dashboard-token"] as string | undefined;
+  if (dashboardToken) {
+    const expected = createHash("sha256")
+      .update(`dashboard-session:${adminToken}`)
+      .digest("hex");
+    if (dashboardToken === expected) return true;
   }
 
   return false;

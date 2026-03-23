@@ -38,11 +38,17 @@ const draftProxyPath = `/_p/${proxyNonce}/draft`;
 
 const isProd = process.env.NODE_ENV === "production";
 
+const dashboardToken = crypto
+  .createHash("sha256")
+  .update(`dashboard-session:${adminToken}`)
+  .digest("hex");
+
 export default defineConfig({
   base: basePath,
   define: {
     __ANALYZE_PROXY_PATH__: JSON.stringify(isProd ? "/api/analyze" : proxyPath),
     __DRAFT_PROXY_PATH__: JSON.stringify(isProd ? "/api/draft" : draftProxyPath),
+    __DASHBOARD_TOKEN__: JSON.stringify(isProd ? dashboardToken : ""),
   },
   plugins: [
     react(),

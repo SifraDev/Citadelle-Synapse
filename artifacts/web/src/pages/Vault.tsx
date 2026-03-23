@@ -35,9 +35,14 @@ export default function Vault() {
       const draftUrl = typeof __DRAFT_PROXY_PATH__ !== "undefined"
         ? __DRAFT_PROXY_PATH__
         : "/api/draft";
+      const draftHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      const dt = typeof __DASHBOARD_TOKEN__ !== "undefined" ? __DASHBOARD_TOKEN__ : "";
+      if (dt) {
+        draftHeaders["X-Dashboard-Token"] = dt;
+      }
       const response = await fetch(draftUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: draftHeaders,
         body: JSON.stringify({ analysisText: result, mode }),
       });
       if (!response.ok) {

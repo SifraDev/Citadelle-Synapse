@@ -58,8 +58,15 @@ export function useAnalyzeStream({ onSuccess, onError }: UseAnalyzeStreamProps =
         ? __ANALYZE_PROXY_PATH__
         : "/api/analyze";
 
+      const headers: Record<string, string> = {};
+      const dt = typeof __DASHBOARD_TOKEN__ !== "undefined" ? __DASHBOARD_TOKEN__ : "";
+      if (dt) {
+        headers["X-Dashboard-Token"] = dt;
+      }
+
       const response = await fetch(analyzeUrl, {
         method: "POST",
+        headers,
         body: formData,
       });
 
