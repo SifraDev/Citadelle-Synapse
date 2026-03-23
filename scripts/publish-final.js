@@ -68,7 +68,10 @@ async function submitProject() {
     console.log("\n[PHASE 3] Fetching Hackathon Tracks...");
     const catalogRes = await fetch(`${API_BASE}/catalog`);
     const catalogData = await catalogRes.json();
-    const trackUUIDs = catalogData.items.slice(0, 3).map(t => t.uuid);
+    const targetPhrases = ["private agents", "use of delegations", "agentic finance", "use of locus", "agent services on base", "let the agent cook", "agents with receipts", "synthesis open track"];
+    const trackUUIDs = catalogData.items
+        .filter(t => targetPhrases.some(p => t.name.toLowerCase().includes(p)))
+        .map(t => t.uuid);
     console.log(` -> Enrolled in ${trackUUIDs.length} tracks.`);
 
     // ---------------------------------------------------------

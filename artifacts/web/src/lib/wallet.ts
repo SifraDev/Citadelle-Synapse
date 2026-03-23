@@ -16,8 +16,8 @@ const ERC20_TRANSFER_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
 ];
 
-export function getEthereumProvider(): unknown | null {
-  return (window as Record<string, unknown>).ethereum ?? null;
+export function getEthereumProvider(): any {
+  return (window as any).ethereum || null;
 }
 
 export async function connectWalletRobust(): Promise<{
@@ -29,7 +29,7 @@ export async function connectWalletRobust(): Promise<{
     throw new Error("MetaMask is not installed.");
   }
 
-  const provider = new BrowserProvider(ethereum as never);
+  const provider = new BrowserProvider(ethereum);
   const accounts = await provider.send("eth_requestAccounts", []);
 
   if (!accounts || accounts.length === 0) {
@@ -44,13 +44,11 @@ export async function connectWalletRobust(): Promise<{
       await provider.send("wallet_switchEthereumChain", [
         { chainId: "0x2105" },
       ]);
-    } catch (switchError: unknown) {
-      if ((switchError as { code?: number })?.code === 4902) {
+    } catch (switchError: any) {
+      if (switchError?.code === 4902) {
         await provider.send("wallet_addEthereumChain", [BASE_CHAIN_PARAMS]);
       } else {
-        throw new Error(
-          "Please switch to the Base network in your wallet."
-        );
+        throw new Error("Please switch to the Base network in your wallet.");
       }
     }
   }
@@ -79,6 +77,7 @@ export async function sendUsdcTransfer(
   const signer = await provider.getSigner(from);
   const usdc = new Contract(USDC_CONTRACT, ERC20_TRANSFER_ABI, signer);
   const rawAmount = BigInt(Math.round(parseFloat(amountUsdc) * 10 ** USDC_DECIMALS));
+
   const tx = await usdc.transfer(to, rawAmount);
   return tx.hash;
 }
